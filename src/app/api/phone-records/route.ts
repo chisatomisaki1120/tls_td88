@@ -5,6 +5,7 @@ import { badRequest, forbidden, ok, serverError } from "@/lib/api";
 import { getSessionUser } from "@/lib/auth";
 import { normalizePhoneToLast9 } from "@/lib/phone";
 import { buildPhoneRecordScope, canAssignRecord, canManageUsers } from "@/lib/permissions";
+import { resolveTeamLeadIdForUser } from "@/lib/team";
 
 const createSchema = z.object({ phoneRaw: z.string().min(1), statusText: z.string().nullable().optional(), noteText: z.string().nullable().optional(), assignedStaffId: z.string().nullable().optional() });
 
@@ -37,13 +38,9 @@ export async function POST(request: NextRequest) {
     const phoneLast9 = normalizePhoneToLast9(parsed.data.phoneRaw);
     if (!phoneLast9) return badRequest("Số điện thoại không hợp lệ");
     if (!(await canAssignRecord(currentUser.role, currentUser.id, parsed.data.assignedStaffId ?? null))) return badRequest("Không thể gán data cho nhân viên ngoài tổ");
-    let leaderId: string | null = null;
-    if (parsed.data.assignedStaffId) {
-      const staff = await db.user.findUnique({ where: { id: parsed.data.assignedStaffId }, select: { team: { select: { leaderId: true } } } });
-      leaderId = staff?.team?.leaderId || null;
-    } else if (await canManageUsers(currentUser.role, currentUser.id)) {
-      leaderId = currentUser.id;
-    }
+    const leaderId = parsed.data.assignedStaffId
+      ? await resolveTeamLeadIdForUser(parsed.data.assignedStaffId)
+      : currentUser.id;
     const created = await db.phoneRecord.create({ data: { phoneRaw: parsed.data.phoneRaw, phoneLast9, statusText: parsed.data.statusText, noteText: parsed.data.noteText, assignedStaffId: parsed.data.assignedStaffId, leaderId, createdById: currentUser.id, updatedById: currentUser.id } });
     return ok({ item: created });
   } catch (error) {

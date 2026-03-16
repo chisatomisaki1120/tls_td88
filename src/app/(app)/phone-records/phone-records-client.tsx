@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { formatDateTime } from "@/lib/utils";
 
 type UserOption = { id: string; username: string; role: "admin" | "staff" };
 type RecordItem = {
@@ -52,7 +51,6 @@ const RecordRow = memo(function RecordRow({
   canAssign,
   staffOptions,
   suggestions,
-  isSaving,
   onStatusChange,
   onAssign,
   onCopy,
@@ -61,7 +59,6 @@ const RecordRow = memo(function RecordRow({
   canAssign: boolean;
   staffOptions: UserOption[];
   suggestions: string[];
-  isSaving: boolean;
   onStatusChange: (id: string, value: string) => void;
   onAssign: (id: string, nextAssignedStaffId: string | null) => void;
   onCopy: (value: string | null | undefined) => void;
@@ -162,7 +159,6 @@ export function PhoneRecordsClient({
   const [status, setStatus] = useState(initialFilters.status);
   const [assignedStaffId, setAssignedStaffId] = useState(initialFilters.assignedStaffId);
   const [message, setMessage] = useState<string | null>(null);
-  const [savingMap, setSavingMap] = useState<Record<string, boolean>>({});
   const [pageInput, setPageInput] = useState(String(pagination.page));
   const saveTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const lastSavedSnapshotRef = useRef<Record<string, string>>({});
@@ -191,8 +187,9 @@ export function PhoneRecordsClient({
   }, [records]);
 
   useEffect(() => {
+    const timers = saveTimersRef.current;
     return () => {
-      Object.values(saveTimersRef.current).forEach((timer) => clearTimeout(timer));
+      Object.values(timers).forEach((timer) => clearTimeout(timer));
     };
   }, []);
 
@@ -200,24 +197,26 @@ export function PhoneRecordsClient({
     const params = new URLSearchParams(searchParams.toString());
 
     if (typeof next.q !== "undefined") {
-      next.q ? params.set("q", next.q) : params.delete("q");
+      if (next.q) params.set("q", next.q);
+      else params.delete("q");
     }
     if (typeof next.status !== "undefined") {
-      next.status ? params.set("status", next.status) : params.delete("status");
+      if (next.status) params.set("status", next.status);
+      else params.delete("status");
     }
     if (typeof next.assignedStaffId !== "undefined") {
-      next.assignedStaffId ? params.set("assignedStaffId", next.assignedStaffId) : params.delete("assignedStaffId");
+      if (next.assignedStaffId) params.set("assignedStaffId", next.assignedStaffId);
+      else params.delete("assignedStaffId");
     }
     if (typeof next.page !== "undefined") {
-      next.page > 1 ? params.set("page", String(next.page)) : params.delete("page");
+      if (next.page > 1) params.set("page", String(next.page));
+      else params.delete("page");
     }
 
     router.push(`${pathname}?${params.toString()}`);
   }
 
   async function persistRecord(recordId: string, statusText: string | null, noteText: string | null) {
-    setSavingMap((prev) => ({ ...prev, [recordId]: true }));
-
     const response = await fetch(`/api/phone-records/${recordId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -225,7 +224,6 @@ export function PhoneRecordsClient({
     });
 
     const data = await response.json().catch(() => null);
-    setSavingMap((prev) => ({ ...prev, [recordId]: false }));
 
     if (!response.ok) {
       setMessage(data?.error || "Không thể lưu tự động");
@@ -421,7 +419,6 @@ export function PhoneRecordsClient({
               canAssign={canAssign}
               staffOptions={staffOptions}
               suggestions={autocompleteSuggestions}
-              isSaving={!!savingMap[item.id]}
               onStatusChange={(recordId, value) => updateRecordInline(recordId, (record) => ({ ...record, statusText: value }))}
               onAssign={(recordId, nextAssignedStaffId) => void assignStaff(recordId, nextAssignedStaffId)}
               onCopy={(value) => void copyText(value)}

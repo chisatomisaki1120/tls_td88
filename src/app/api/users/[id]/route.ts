@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { badRequest, forbidden, notFound, ok, serverError } from "@/lib/api";
 import { getSessionUser, hashPassword } from "@/lib/auth";
 import { canManageUsers } from "@/lib/permissions";
+import { findLeadingTeam, userSummarySelect, withRecordCount } from "@/lib/team";
 
 const updateUserSchema = z.object({ username: z.string().min(1).optional(), password: z.string().min(6).optional(), teamId: z.string().nullable().optional() });
 
@@ -11,17 +12,21 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   try {
     const currentUser = await getSessionUser();
     if (!currentUser || !(await canManageUsers(currentUser.role, currentUser.id))) return forbidden();
+
     const body = await request.json().catch(() => null);
     const parsed = updateUserSchema.safeParse(body);
     if (!parsed.success) return badRequest("Dữ liệu cập nhật không hợp lệ", parsed.error.flatten());
+
     const { id } = await params;
     const existing = await db.user.findUnique({ where: { id }, include: { team: true } });
     if (!existing) return notFound("Không tìm thấy user");
     if (existing.role === "admin") return badRequest("Không chỉnh sửa admin tại màn này");
+
     if (currentUser.role !== "admin") {
-      const myTeam = await db.team.findFirst({ where: { leaderId: currentUser.id }, select: { id: true } });
+      const myTeam = await findLeadingTeam(currentUser.id);
       if (!myTeam || existing.teamId !== myTeam.id) return forbidden();
     }
+
     const nextTeamId = parsed.data.teamId ?? existing.teamId ?? null;
     if (nextTeamId) {
       const team = await db.team.findUnique({ where: { id: nextTeamId }, select: { leaderId: true } });
@@ -29,16 +34,31 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       if (currentUser.role !== "admin" && team.leaderId !== currentUser.id) return forbidden();
     }
 
-    const teamChanged = existing.teamId !== nextTeamId;
-    if (teamChanged && existing.teamId) {
-      await db.phoneRecord.updateMany({
-        where: { assignedStaffId: id },
-        data: { assignedStaffId: null, leaderId: existing.team?.leaderId || null, updatedById: currentUser.id },
-      });
-    }
+    const updated = await db.$transaction(async (tx) => {
+      const teamChanged = existing.teamId !== nextTeamId;
+      if (teamChanged && existing.teamId) {
+        await tx.phoneRecord.updateMany({
+          where: { assignedStaffId: id },
+          data: {
+            assignedStaffId: null,
+            leaderId: existing.team?.leaderId || null,
+            updatedById: currentUser.id,
+          },
+        });
+      }
 
-    const updated = await db.user.update({ where: { id }, data: { username: parsed.data.username, teamId: nextTeamId, ...(parsed.data.password ? { passwordHash: await hashPassword(parsed.data.password) } : {}) }, select: { id: true, username: true, role: true, isActive: true, teamId: true, team: { select: { id: true, name: true, leaderId: true, leader: { select: { id: true, username: true } } } }, _count: { select: { assignedRecords: true } } } });
-    return ok({ item: { ...updated, recordCount: updated._count.assignedRecords } });
+      return tx.user.update({
+        where: { id },
+        data: {
+          username: parsed.data.username,
+          teamId: nextTeamId,
+          ...(parsed.data.password ? { passwordHash: await hashPassword(parsed.data.password) } : {}),
+        },
+        select: userSummarySelect,
+      });
+    });
+
+    return ok({ item: withRecordCount(updated) });
   } catch (error) {
     return serverError(error instanceof Error ? error.message : "Không thể cập nhật user");
   }
@@ -53,7 +73,7 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
     if (!existing) return notFound("Không tìm thấy user");
     if (existing.role === "admin") return badRequest("Không được xóa admin");
     if (currentUser.role !== "admin") {
-      const myTeam = await db.team.findFirst({ where: { leaderId: currentUser.id }, select: { id: true } });
+      const myTeam = await findLeadingTeam(currentUser.id);
       if (!myTeam || existing.teamId !== myTeam.id) return forbidden();
     }
     const recordCount = await db.phoneRecord.count({ where: { OR: [{ assignedStaffId: id }, { leaderId: id }, { createdById: id }, { updatedById: id }] } });

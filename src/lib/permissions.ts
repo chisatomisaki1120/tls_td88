@@ -1,6 +1,7 @@
 import type { Prisma, UserRole } from "@prisma/client";
 import { getSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { resolveTeamLeadIdForUser } from "@/lib/team";
 
 export async function requireAuth() {
   const user = await getSessionUser();
@@ -27,35 +28,28 @@ export async function canManageUsers(role: UserRole, userId?: string) {
 
 export async function canAccessRecord(role: UserRole, userId: string, record: { leaderId: string | null; assignedStaffId: string | null }) {
   if (role === "admin") return true;
-  if (record.assignedStaffId === userId) return true;
-  if (record.leaderId === userId) return true;
+  if (record.assignedStaffId === userId || record.leaderId === userId) return true;
   if (!record.assignedStaffId) return false;
-  const staff = await db.user.findUnique({ where: { id: record.assignedStaffId }, select: { team: { select: { leaderId: true } } } });
-  return staff?.team?.leaderId === userId;
+  return (await resolveTeamLeadIdForUser(record.assignedStaffId)) === userId;
 }
 
 export async function canAssignRecord(role: UserRole, userId?: string, assignedStaffId?: string | null) {
   if (role === "admin") return true;
   if (role !== "staff" || !userId) return false;
-  const leader = await isTeamLeader(userId);
-  if (!leader) return false;
-  if (!assignedStaffId) return true;
-  if (assignedStaffId === userId) return true;
-  const staff = await db.user.findUnique({ where: { id: assignedStaffId }, select: { role: true, isActive: true, team: { select: { leaderId: true } } } });
+  if (!(await isTeamLeader(userId))) return false;
+  if (!assignedStaffId || assignedStaffId === userId) return true;
+
+  const staff = await db.user.findUnique({
+    where: { id: assignedStaffId },
+    select: { role: true, isActive: true, team: { select: { leaderId: true } } },
+  });
+
   return !!staff && staff.role === "staff" && staff.isActive && staff.team?.leaderId === userId;
 }
 
 export async function buildPhoneRecordScope(user: { role: UserRole; id: string }): Promise<Prisma.PhoneRecordWhereInput> {
   if (user.role === "admin") return {};
-  if (!(await isTeamLeader(user.id))) {
-    return {
-      assignedStaffId: user.id,
-      OR: [
-        { leaderId: user.id },
-        { assignedStaff: { is: { team: { is: { leaderId: user.id } } } } },
-      ],
-    };
-  }
+  if (!(await isTeamLeader(user.id))) return { assignedStaffId: user.id };
   return { OR: [{ leaderId: user.id }, { assignedStaff: { is: { team: { is: { leaderId: user.id } } } } }] };
 }
 

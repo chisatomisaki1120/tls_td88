@@ -3,6 +3,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { badRequest, forbidden, notFound, ok, serverError } from "@/lib/api";
 import { getSessionUser } from "@/lib/auth";
+import { teamSummarySelect } from "@/lib/team";
 
 const updateTeamSchema = z.object({ name: z.string().min(1).optional(), leaderId: z.string().nullable().optional() });
 
@@ -20,7 +21,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       const leader = await db.user.findUnique({ where: { id: parsed.data.leaderId } });
       if (!leader || leader.role !== "staff" || !leader.isActive) return badRequest("Tổ trưởng không hợp lệ");
     }
-    const item = await db.team.update({ where: { id }, data: { name: parsed.data.name, leaderId: parsed.data.leaderId }, select: { id: true, name: true, leaderId: true, leader: { select: { id: true, username: true } }, members: { where: { role: "staff" }, select: { id: true, username: true } }, _count: { select: { members: true } } } });
+    const item = await db.team.update({ where: { id }, data: { name: parsed.data.name, leaderId: parsed.data.leaderId }, select: teamSummarySelect });
     return ok({ item });
   } catch (error) {
     return serverError(error instanceof Error ? error.message : "Không thể cập nhật tổ");

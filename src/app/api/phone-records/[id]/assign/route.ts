@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { badRequest, forbidden, notFound, ok } from "@/lib/api";
 import { getSessionUser } from "@/lib/auth";
 import { canAccessRecord, canAssignRecord } from "@/lib/permissions";
+import { resolveTeamLeadIdForUser } from "@/lib/team";
 
 const schema = z.object({ assignedStaffId: z.string().nullable() });
 
@@ -24,13 +25,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return badRequest("Không thể gán nhân viên ngoài team");
   }
 
+  const nextLeaderId = parsed.data.assignedStaffId
+    ? (await resolveTeamLeadIdForUser(parsed.data.assignedStaffId)) || existing.leaderId
+    : existing.leaderId;
+
   const item = await db.phoneRecord.update({
     where: { id },
     data: {
       assignedStaffId: parsed.data.assignedStaffId,
-      leaderId: parsed.data.assignedStaffId
-        ? ((await db.user.findUnique({ where: { id: parsed.data.assignedStaffId }, select: { team: { select: { leaderId: true } } } }))?.team?.leaderId || existing.leaderId)
-        : existing.leaderId,
+      leaderId: nextLeaderId,
       updatedById: currentUser.id,
     },
     include: { assignedStaff: true, leader: true },
