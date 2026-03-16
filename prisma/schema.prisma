@@ -1,0 +1,107 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  admin
+  leader
+  staff
+}
+
+enum ImportJobStatus {
+  processing
+  done
+  failed
+}
+
+model User {
+  id             String        @id @default(cuid())
+  name           String
+  employeeCode   String?       @map("employee_code")
+  phone          String?
+  username       String        @unique
+  passwordHash   String        @map("password_hash")
+  role           UserRole
+  isActive       Boolean       @default(true) @map("is_active")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  managedRecords  PhoneRecord[]    @relation("LeaderRecords")
+  assignedRecords PhoneRecord[]    @relation("AssignedStaffRecords")
+  createdRecords  PhoneRecord[]    @relation("CreatedByRecords")
+  updatedRecords  PhoneRecord[]    @relation("UpdatedByRecords")
+  importJobs      ImportJob[]      @relation("ImportedByJobs")
+  assignedJobs    ImportJob[]      @relation("AssignedStaffJobs")
+
+  @@map("users")
+}
+
+model PhoneRecord {
+  id              String     @id @default(cuid())
+  phoneRaw        String     @map("phone_raw")
+  phoneLast9      String     @unique @map("phone_last9")
+  statusText      String?    @map("status_text")
+  noteText        String?    @map("note_text")
+  assignedStaffId String?    @map("assigned_staff_id")
+  leaderId        String?    @map("leader_id")
+  importJobId     String?    @map("import_job_id")
+  createdById     String     @map("created_by")
+  updatedById     String     @map("updated_by")
+  createdAt       DateTime   @default(now()) @map("created_at")
+  updatedAt       DateTime   @updatedAt @map("updated_at")
+  deletedAt       DateTime?  @map("deleted_at")
+
+  assignedStaff User?      @relation("AssignedStaffRecords", fields: [assignedStaffId], references: [id])
+  leader        User?      @relation("LeaderRecords", fields: [leaderId], references: [id])
+  importJob     ImportJob? @relation(fields: [importJobId], references: [id])
+  createdBy     User       @relation("CreatedByRecords", fields: [createdById], references: [id])
+  updatedBy     User       @relation("UpdatedByRecords", fields: [updatedById], references: [id])
+
+  @@index([assignedStaffId])
+  @@index([leaderId])
+  @@index([statusText])
+  @@index([importJobId])
+  @@map("phone_records")
+}
+
+model ImportJob {
+  id               String           @id @default(cuid())
+  fileName         String           @map("file_name")
+  importedByUserId String           @map("imported_by_user_id")
+  assignedStaffId  String?          @map("assigned_staff_id")
+  totalRows        Int              @default(0) @map("total_rows")
+  successRows      Int              @default(0) @map("success_rows")
+  duplicateRows    Int              @default(0) @map("duplicate_rows")
+  invalidRows      Int              @default(0) @map("invalid_rows")
+  status           ImportJobStatus  @default(processing)
+  createdAt        DateTime         @default(now()) @map("created_at")
+  finishedAt       DateTime?        @map("finished_at")
+
+  importedBy    User              @relation("ImportedByJobs", fields: [importedByUserId], references: [id])
+  assignedStaff User?             @relation("AssignedStaffJobs", fields: [assignedStaffId], references: [id])
+  records       PhoneRecord[]
+  duplicates    ImportDuplicate[]
+
+  @@map("import_jobs")
+}
+
+model ImportDuplicate {
+  id               String    @id @default(cuid())
+  importJobId      String    @map("import_job_id")
+  rowNumber        Int       @map("row_number")
+  phoneRaw         String    @map("phone_raw")
+  phoneLast9       String?   @map("phone_last9")
+  existingRecordId String?   @map("existing_record_id")
+  reason           String
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  importJob ImportJob @relation(fields: [importJobId], references: [id])
+
+  @@index([importJobId])
+  @@map("import_duplicates")
+}
