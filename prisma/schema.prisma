@@ -9,7 +9,6 @@ datasource db {
 
 enum UserRole {
   admin
-  leader
   staff
 }
 
@@ -19,18 +18,31 @@ enum ImportJobStatus {
   failed
 }
 
-model User {
-  id             String        @id @default(cuid())
-  username       String        @unique
-  passwordHash   String        @map("password_hash")
-  role           UserRole
-  teamLeaderId   String?       @map("team_leader_id")
-  isActive       Boolean       @default(true) @map("is_active")
-  createdAt      DateTime      @default(now()) @map("created_at")
-  updatedAt      DateTime      @updatedAt @map("updated_at")
+model Team {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  leaderId  String?  @unique @map("leader_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  teamLeader      User?         @relation("TeamMembers", fields: [teamLeaderId], references: [id])
-  teamMembers     User[]        @relation("TeamMembers")
+  leader  User?  @relation("TeamLeader", fields: [leaderId], references: [id])
+  members User[] @relation("UserTeam")
+
+  @@map("teams")
+}
+
+model User {
+  id           String        @id @default(cuid())
+  username     String        @unique
+  passwordHash String        @map("password_hash")
+  role         UserRole
+  teamId       String?       @map("team_id")
+  isActive     Boolean       @default(true) @map("is_active")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+
+  team            Team?         @relation("UserTeam", fields: [teamId], references: [id])
+  leadingTeam     Team?         @relation("TeamLeader")
   managedRecords  PhoneRecord[] @relation("LeaderRecords")
   assignedRecords PhoneRecord[] @relation("AssignedStaffRecords")
   createdRecords  PhoneRecord[] @relation("CreatedByRecords")
@@ -38,7 +50,7 @@ model User {
   importJobs      ImportJob[]   @relation("ImportedByJobs")
   assignedJobs    ImportJob[]   @relation("AssignedStaffJobs")
 
-  @@index([teamLeaderId])
+  @@index([teamId])
   @@map("users")
 }
 
@@ -71,17 +83,17 @@ model PhoneRecord {
 }
 
 model ImportJob {
-  id               String           @id @default(cuid())
-  fileName         String           @map("file_name")
-  importedByUserId String           @map("imported_by_user_id")
-  assignedStaffId  String?          @map("assigned_staff_id")
-  totalRows        Int              @default(0) @map("total_rows")
-  successRows      Int              @default(0) @map("success_rows")
-  duplicateRows    Int              @default(0) @map("duplicate_rows")
-  invalidRows      Int              @default(0) @map("invalid_rows")
-  status           ImportJobStatus  @default(processing)
-  createdAt        DateTime         @default(now()) @map("created_at")
-  finishedAt       DateTime?        @map("finished_at")
+  id               String          @id @default(cuid())
+  fileName         String          @map("file_name")
+  importedByUserId String          @map("imported_by_user_id")
+  assignedStaffId  String?         @map("assigned_staff_id")
+  totalRows        Int             @default(0) @map("total_rows")
+  successRows      Int             @default(0) @map("success_rows")
+  duplicateRows    Int             @default(0) @map("duplicate_rows")
+  invalidRows      Int             @default(0) @map("invalid_rows")
+  status           ImportJobStatus @default(processing)
+  createdAt        DateTime        @default(now()) @map("created_at")
+  finishedAt       DateTime?       @map("finished_at")
 
   importedBy    User              @relation("ImportedByJobs", fields: [importedByUserId], references: [id])
   assignedStaff User?             @relation("AssignedStaffJobs", fields: [assignedStaffId], references: [id])
@@ -92,14 +104,14 @@ model ImportJob {
 }
 
 model ImportDuplicate {
-  id               String    @id @default(cuid())
-  importJobId      String    @map("import_job_id")
-  rowNumber        Int       @map("row_number")
-  phoneRaw         String    @map("phone_raw")
-  phoneLast9       String?   @map("phone_last9")
-  existingRecordId String?   @map("existing_record_id")
+  id               String   @id @default(cuid())
+  importJobId      String   @map("import_job_id")
+  rowNumber        Int      @map("row_number")
+  phoneRaw         String   @map("phone_raw")
+  phoneLast9       String?  @map("phone_last9")
+  existingRecordId String?  @map("existing_record_id")
   reason           String
-  createdAt        DateTime  @default(now()) @map("created_at")
+  createdAt        DateTime @default(now()) @map("created_at")
 
   importJob ImportJob @relation(fields: [importJobId], references: [id])
 

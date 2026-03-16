@@ -28,7 +28,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     where: { id },
     data: {
       assignedStaffId: parsed.data.assignedStaffId,
-      leaderId: currentUser.role === "leader" ? currentUser.id : existing.leaderId,
+      leaderId: parsed.data.assignedStaffId
+        ? ((await db.user.findUnique({ where: { id: parsed.data.assignedStaffId }, select: { team: { select: { leaderId: true } } } }))?.team?.leaderId || existing.leaderId)
+        : existing.leaderId,
       updatedById: currentUser.id,
     },
     include: { assignedStaff: true, leader: true },

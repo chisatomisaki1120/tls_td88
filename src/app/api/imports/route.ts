@@ -6,15 +6,7 @@ export async function GET() {
   const currentUser = await getSessionUser();
   if (!currentUser || currentUser.role === "staff") return forbidden();
 
-  const where =
-    currentUser.role === "admin"
-      ? {}
-      : {
-          OR: [
-            { importedByUserId: currentUser.id },
-            { assignedStaff: { is: { teamLeaderId: currentUser.id } } },
-          ],
-        };
+  const where = currentUser.role === "admin" ? {} : { OR: [{ importedByUserId: currentUser.id }, { assignedStaff: { is: { team: { is: { leaderId: currentUser.id } } } } }] };
   const items = await db.importJob.findMany({
     where,
     orderBy: { createdAt: "desc" },

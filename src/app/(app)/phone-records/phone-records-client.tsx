@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { formatDateTime } from "@/lib/utils";
 
-type UserOption = { id: string; username: string; role: "admin" | "leader" | "staff" };
+type UserOption = { id: string; username: string; role: "admin" | "staff" };
 type RecordItem = {
   id: string;
   phoneLast9: string;

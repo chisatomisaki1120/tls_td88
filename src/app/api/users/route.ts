@@ -3,91 +3,35 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { badRequest, forbidden, ok, serverError } from "@/lib/api";
 import { hashPassword, getSessionUser } from "@/lib/auth";
-import type { Prisma } from "@prisma/client";
+import { buildStaffScope, canManageUsers } from "@/lib/permissions";
 
-const createUserSchema = z.object({
-  username: z.string().min(1),
-  password: z.string().min(6),
-  role: z.enum(["leader", "staff"]),
-  teamLeaderId: z.string().nullable().optional(),
-});
+const createUserSchema = z.object({ username: z.string().min(1), password: z.string().min(6), teamId: z.string().nullable().optional() });
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   const user = await getSessionUser();
-  if (!user) return forbidden();
-
-  const q = request.nextUrl.searchParams.get("q") || "";
-  let where: Prisma.UserWhereInput | undefined;
-
-  if (user.role === "admin") {
-    where = q ? { OR: [{ username: { contains: q } }] } : undefined;
-  } else if (user.role === "leader") {
-    where = {
-      AND: [
-        { role: "staff", teamLeaderId: user.id },
-        ...(q ? [{ username: { contains: q } }] : []),
-      ],
-    };
-  }
-
-  if (user.role !== "admin" && user.role !== "leader") return forbidden();
-
-  const users = await db.user.findMany({
-    where,
-    orderBy: [{ role: "asc" }, { createdAt: "desc" }],
-    select: {
-      id: true,
-      username: true,
-      role: true,
-      isActive: true,
-      createdAt: true,
-      teamLeaderId: true,
-      teamLeader: { select: { id: true, username: true } },
-    },
-  });
-  return ok({ items: users });
+  if (!user || !(await canManageUsers(user.role, user.id))) return forbidden();
+  const where = user.role === "admin" ? undefined : await buildStaffScope(user);
+  const users = await db.user.findMany({ where, orderBy: [{ role: "asc" }, { createdAt: "desc" }], select: { id: true, username: true, role: true, isActive: true, teamId: true, team: { select: { id: true, name: true, leaderId: true, leader: { select: { id: true, username: true } } } }, _count: { select: { assignedRecords: true } } } });
+  const teams = await db.team.findMany({ where: user.role === "admin" ? undefined : { leaderId: user.id }, orderBy: { createdAt: "desc" }, select: { id: true, name: true, leaderId: true, leader: { select: { id: true, username: true } }, members: { where: { role: "staff" }, select: { id: true, username: true } }, _count: { select: { members: true } } } });
+  const leaders = await db.user.findMany({ where: user.role === "admin" ? { isActive: true, role: "staff" as const } : { id: user.id, isActive: true, role: "staff" as const }, select: { id: true, username: true }, orderBy: { username: "asc" } });
+  return ok({ items: users.map((item) => ({ ...item, recordCount: item._count.assignedRecords })), teams, leaders });
 }
 
 export async function POST(request: NextRequest) {
   try {
     const user = await getSessionUser();
-    if (!user || (user.role !== "admin" && user.role !== "leader")) return forbidden();
-
+    if (!user || !(await canManageUsers(user.role, user.id))) return forbidden();
     const body = await request.json().catch(() => null);
     const parsed = createUserSchema.safeParse(body);
     if (!parsed.success) return badRequest("Dữ liệu user không hợp lệ", parsed.error.flatten());
-
-    if (user.role === "leader" && parsed.data.role !== "staff") {
-      return badRequest("Leader chỉ được tạo staff");
+    const teamId = user.role === "admin" ? parsed.data.teamId ?? null : (await db.team.findFirst({ where: { leaderId: user.id }, select: { id: true } }))?.id ?? null;
+    if (teamId) {
+      const team = await db.team.findUnique({ where: { id: teamId }, select: { leaderId: true } });
+      if (!team) return badRequest("Tổ không hợp lệ");
+      if (user.role !== "admin" && team.leaderId !== user.id) return forbidden();
     }
-
-    const teamLeaderId = user.role === "leader" ? user.id : parsed.data.role === "staff" ? parsed.data.teamLeaderId : null;
-
-    if (parsed.data.role === "staff") {
-      if (!teamLeaderId) return badRequest("Staff phải thuộc một leader");
-      const leader = await db.user.findUnique({ where: { id: teamLeaderId } });
-      if (!leader || leader.role !== "leader") return badRequest("Leader không hợp lệ");
-    }
-
-    const passwordHash = await hashPassword(parsed.data.password);
-    const created = await db.user.create({
-      data: {
-        username: parsed.data.username,
-        role: parsed.data.role,
-        passwordHash,
-        teamLeaderId: parsed.data.role === "staff" ? teamLeaderId : null,
-      },
-      select: {
-        id: true,
-        username: true,
-        role: true,
-        isActive: true,
-        teamLeaderId: true,
-        teamLeader: { select: { id: true, username: true } },
-      },
-    });
-
-    return ok({ item: created });
+    const created = await db.user.create({ data: { username: parsed.data.username, role: "staff", passwordHash: await hashPassword(parsed.data.password), teamId }, select: { id: true, username: true, role: true, isActive: true, teamId: true, team: { select: { id: true, name: true, leaderId: true, leader: { select: { id: true, username: true } } } }, _count: { select: { assignedRecords: true } } } });
+    return ok({ item: { ...created, recordCount: created._count.assignedRecords } });
   } catch (error) {
     return serverError(error instanceof Error ? error.message : "Không thể tạo user");
   }

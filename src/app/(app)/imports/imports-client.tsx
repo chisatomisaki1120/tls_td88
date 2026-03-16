@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
 
-type StaffOption = { id: string; username: string; role: "admin" | "leader" | "staff" };
+type StaffOption = { id: string; username: string; role: "admin" | "staff" };
 type ImportJobItem = {
   id: string;
   fileName: string;

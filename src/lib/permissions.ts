@@ -4,75 +4,63 @@ import { db } from "@/lib/db";
 
 export async function requireAuth() {
   const user = await getSessionUser();
-  if (!user) {
-    throw new Error("UNAUTHORIZED");
-  }
+  if (!user) throw new Error("UNAUTHORIZED");
   return user;
 }
 
 export async function requireRole(roles: UserRole[]) {
   const user = await requireAuth();
-  if (!roles.includes(user.role)) {
-    throw new Error("FORBIDDEN");
-  }
+  if (!roles.includes(user.role)) throw new Error("FORBIDDEN");
   return user;
 }
 
-export function canManageUsers(role: UserRole) {
-  return role === "admin";
+export async function isTeamLeader(userId: string) {
+  const team = await db.team.findFirst({ where: { leaderId: userId }, select: { id: true } });
+  return !!team;
 }
 
-export async function canAccessRecord(
-  role: UserRole,
-  userId: string,
-  record: { leaderId: string | null; assignedStaffId: string | null },
-) {
+export async function canManageUsers(role: UserRole, userId?: string) {
   if (role === "admin") return true;
-  if (role === "staff") return record.assignedStaffId === userId;
+  if (role !== "staff" || !userId) return false;
+  return isTeamLeader(userId);
+}
 
+export async function canAccessRecord(role: UserRole, userId: string, record: { leaderId: string | null; assignedStaffId: string | null }) {
+  if (role === "admin") return true;
+  if (record.assignedStaffId === userId) return true;
   if (record.leaderId === userId) return true;
   if (!record.assignedStaffId) return false;
-
-  const staff = await db.user.findUnique({
-    where: { id: record.assignedStaffId },
-    select: { teamLeaderId: true },
-  });
-
-  return staff?.teamLeaderId === userId;
+  const staff = await db.user.findUnique({ where: { id: record.assignedStaffId }, select: { team: { select: { leaderId: true } } } });
+  return staff?.team?.leaderId === userId;
 }
 
 export async function canAssignRecord(role: UserRole, userId?: string, assignedStaffId?: string | null) {
   if (role === "admin") return true;
-  if (role !== "leader" || !userId) return false;
+  if (role !== "staff" || !userId) return false;
+  const leader = await isTeamLeader(userId);
+  if (!leader) return false;
   if (!assignedStaffId) return true;
-
-  const staff = await db.user.findUnique({
-    where: { id: assignedStaffId },
-    select: { role: true, teamLeaderId: true, isActive: true },
-  });
-
-  return !!staff && staff.role === "staff" && staff.isActive && staff.teamLeaderId === userId;
+  if (assignedStaffId === userId) return true;
+  const staff = await db.user.findUnique({ where: { id: assignedStaffId }, select: { role: true, isActive: true, team: { select: { leaderId: true } } } });
+  return !!staff && staff.role === "staff" && staff.isActive && staff.team?.leaderId === userId;
 }
 
-export function buildPhoneRecordScope(user: { role: UserRole; id: string }): Prisma.PhoneRecordWhereInput {
+export async function buildPhoneRecordScope(user: { role: UserRole; id: string }): Promise<Prisma.PhoneRecordWhereInput> {
   if (user.role === "admin") return {};
-  if (user.role === "staff") return { assignedStaffId: user.id };
-
-  return {
-    OR: [
-      { leaderId: user.id },
-      { assignedStaff: { is: { teamLeaderId: user.id } } },
-    ],
-  };
+  if (!(await isTeamLeader(user.id))) {
+    return {
+      assignedStaffId: user.id,
+      OR: [
+        { leaderId: user.id },
+        { assignedStaff: { is: { team: { is: { leaderId: user.id } } } } },
+      ],
+    };
+  }
+  return { OR: [{ leaderId: user.id }, { assignedStaff: { is: { team: { is: { leaderId: user.id } } } } }] };
 }
 
-export function buildStaffScope(user: { role: UserRole; id: string }): Prisma.UserWhereInput {
-  if (user.role === "admin") {
-    return { role: "staff" };
-  }
-
-  return {
-    role: "staff",
-    teamLeaderId: user.id,
-  };
+export async function buildStaffScope(user: { role: UserRole; id: string }): Promise<Prisma.UserWhereInput> {
+  if (user.role === "admin") return { role: "staff" };
+  if (!(await isTeamLeader(user.id))) return { id: user.id };
+  return { role: "staff", team: { is: { leaderId: user.id } } };
 }
