@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { getSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { buildStaffScope } from "@/lib/permissions";
 import { ImportsClient } from "./imports-client";
 
 export default async function ImportsPage() {
@@ -11,7 +12,10 @@ export default async function ImportsPage() {
   if (currentUser.role === "staff") redirect("/dashboard");
 
   const [staffOptions, jobsRaw] = await Promise.all([
-    db.user.findMany({ where: { role: "staff", isActive: true }, select: { id: true, username: true, role: true } }),
+    db.user.findMany({
+      where: { AND: [buildStaffScope(currentUser), { isActive: true }] },
+      select: { id: true, username: true, role: true },
+    }),
     db.importJob.findMany({
       where: currentUser.role === "admin" ? {} : { importedByUserId: currentUser.id },
       orderBy: { createdAt: "desc" },

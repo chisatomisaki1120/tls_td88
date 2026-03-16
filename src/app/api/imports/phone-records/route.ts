@@ -2,6 +2,7 @@ import { getSessionUser } from "@/lib/auth";
 import { badRequest, forbidden, ok, serverError } from "@/lib/api";
 import { db } from "@/lib/db";
 import { runPhoneRecordImport } from "@/lib/import-phone-records";
+import { canAssignRecord } from "@/lib/permissions";
 
 export async function POST(request: Request) {
   try {
@@ -20,6 +21,10 @@ export async function POST(request: Request) {
 
     if (!file.name.toLowerCase().endsWith(".xlsx")) {
       return badRequest("Chỉ hỗ trợ file .xlsx");
+    }
+
+    if (!(await canAssignRecord(currentUser.role, currentUser.id, assignedStaffId))) {
+      return badRequest("Không thể gán data cho nhân viên ngoài team");
     }
 
     if (assignedStaffId) {

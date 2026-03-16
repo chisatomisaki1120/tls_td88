@@ -4,12 +4,19 @@ import { db } from "@/lib/db";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const currentUser = await getSessionUser();
-  if (!currentUser) return forbidden();
+  if (!currentUser || currentUser.role === "staff") return forbidden();
 
   const { id } = await params;
-  const job = await db.importJob.findUnique({ where: { id } });
+  const job = await db.importJob.findUnique({
+    where: { id },
+    include: { assignedStaff: { select: { teamLeaderId: true } } },
+  });
   if (!job) return notFound("Không tìm thấy import job");
-  if (currentUser.role !== "admin" && job.importedByUserId !== currentUser.id) return forbidden();
+  if (
+    currentUser.role !== "admin" &&
+    job.importedByUserId !== currentUser.id &&
+    job.assignedStaff?.teamLeaderId !== currentUser.id
+  ) return forbidden();
 
   const items = await db.importDuplicate.findMany({ where: { importJobId: id }, orderBy: { rowNumber: "asc" } });
   return ok({ items });

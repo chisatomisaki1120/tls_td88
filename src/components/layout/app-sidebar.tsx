@@ -7,8 +7,8 @@ import { cn } from "@/lib/utils";
 const items = [
   { href: "/dashboard", label: "Tổng quan" },
   { href: "/phone-records", label: "Số điện thoại" },
-  { href: "/imports", label: "Import" },
-  { href: "/users", label: "Người dùng", adminOnly: true },
+  { href: "/imports", label: "Import", roles: ["admin", "leader"] },
+  { href: "/users", label: "Người dùng", roles: ["admin", "leader"] },
 ];
 
 export function AppSidebar({ role }: { role: "admin" | "leader" | "staff" }) {
@@ -22,7 +22,7 @@ export function AppSidebar({ role }: { role: "admin" | "leader" | "staff" }) {
       </div>
       <nav className="space-y-1">
         {items
-          .filter((item) => !item.adminOnly || role === "admin")
+          .filter((item) => !item.roles || item.roles.includes(role))
           .map((item) => (
             <Link
               key={item.href}

@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { badRequest, forbidden, ok, serverError } from "@/lib/api";
 import { getSessionUser } from "@/lib/auth";
 import { normalizePhoneToLast9 } from "@/lib/phone";
+import { buildPhoneRecordScope, canAssignRecord } from "@/lib/permissions";
 
 const createSchema = z.object({
   phoneRaw: z.string().min(1),
@@ -19,25 +20,50 @@ export async function GET(request: NextRequest) {
   const q = request.nextUrl.searchParams.get("q") || "";
   const assignedStaffId = request.nextUrl.searchParams.get("assignedStaffId") || "";
   const status = request.nextUrl.searchParams.get("status") || "";
+  const page = Math.max(Number(request.nextUrl.searchParams.get("page") || 1), 1);
+  const requestedPageSize = Number(request.nextUrl.searchParams.get("pageSize") || 50);
+  const pageSize = Math.min(Math.max(requestedPageSize, 1), 50);
 
-  const where = {
-    ...(currentUser.role === "leader" ? { leaderId: currentUser.id } : {}),
-    ...(currentUser.role === "staff" ? { assignedStaffId: currentUser.id } : {}),
-    ...(q ? { phoneLast9: { contains: q } } : {}),
+  const baseWhere = {
+    ...(q
+      ? {
+          OR: [
+            { phoneLast9: { contains: q } },
+            { phoneRaw: { contains: q } },
+          ],
+        }
+      : {}),
     ...(assignedStaffId ? { assignedStaffId } : {}),
     ...(status ? { statusText: status } : {}),
   };
 
-  const items = await db.phoneRecord.findMany({
-    where,
-    orderBy: { updatedAt: "desc" },
-    include: {
-      assignedStaff: { select: { id: true, username: true, role: true } },
-      leader: { select: { id: true, username: true, role: true } },
+  const where = {
+    AND: [baseWhere, buildPhoneRecordScope(currentUser)],
+  };
+
+  const [total, items] = await Promise.all([
+    db.phoneRecord.count({ where }),
+    db.phoneRecord.findMany({
+      where,
+      orderBy: { updatedAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      include: {
+        assignedStaff: { select: { id: true, username: true, role: true, teamLeaderId: true } },
+        leader: { select: { id: true, username: true, role: true } },
+      },
+    }),
+  ]);
+
+  return ok({
+    items,
+    pagination: {
+      page,
+      pageSize,
+      total,
+      totalPages: Math.max(Math.ceil(total / pageSize), 1),
     },
   });
-
-  return ok({ items, pagination: { page: 1, pageSize: items.length, total: items.length } });
 }
 
 export async function POST(request: NextRequest) {
@@ -51,6 +77,10 @@ export async function POST(request: NextRequest) {
 
     const phoneLast9 = normalizePhoneToLast9(parsed.data.phoneRaw);
     if (!phoneLast9) return badRequest("Số điện thoại không hợp lệ");
+
+    if (!(await canAssignRecord(currentUser.role, currentUser.id, parsed.data.assignedStaffId ?? null))) {
+      return badRequest("Không thể gán data cho nhân viên ngoài team");
+    }
 
     const created = await db.phoneRecord.create({
       data: {

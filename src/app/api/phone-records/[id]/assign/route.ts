@@ -9,7 +9,7 @@ const schema = z.object({ assignedStaffId: z.string().nullable() });
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const currentUser = await getSessionUser();
-  if (!currentUser || !canAssignRecord(currentUser.role)) return forbidden();
+  if (!currentUser || !(await canAssignRecord(currentUser.role, currentUser.id))) return forbidden();
 
   const body = await request.json().catch(() => null);
   const parsed = schema.safeParse(body);
@@ -18,11 +18,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const { id } = await params;
   const existing = await db.phoneRecord.findUnique({ where: { id } });
   if (!existing) return notFound("Không tìm thấy record");
-  if (!canAccessRecord(currentUser.role, currentUser.id, existing)) return forbidden();
+  if (!(await canAccessRecord(currentUser.role, currentUser.id, existing))) return forbidden();
 
-  if (parsed.data.assignedStaffId) {
-    const staff = await db.user.findUnique({ where: { id: parsed.data.assignedStaffId } });
-    if (!staff || staff.role !== "staff") return badRequest("Nhân viên không hợp lệ");
+  if (!(await canAssignRecord(currentUser.role, currentUser.id, parsed.data.assignedStaffId))) {
+    return badRequest("Không thể gán nhân viên ngoài team");
   }
 
   const item = await db.phoneRecord.update({

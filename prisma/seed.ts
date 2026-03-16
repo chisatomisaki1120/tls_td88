@@ -33,6 +33,7 @@ async function main() {
     data: {
       username: "staffa",
       role: UserRole.staff,
+      teamLeaderId: leader.id,
       passwordHash: staffPassword,
     },
   });
@@ -41,6 +42,7 @@ async function main() {
     data: {
       username: "staffb",
       role: UserRole.staff,
+      teamLeaderId: leader.id,
       passwordHash: staffPassword,
     },
   });

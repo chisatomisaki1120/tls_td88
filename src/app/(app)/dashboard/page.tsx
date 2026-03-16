@@ -1,17 +1,19 @@
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatCard } from "@/components/ui/stat-card";
-import { db } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
+import { db } from "@/lib/db";
+import { buildPhoneRecordScope } from "@/lib/permissions";
 
 export default async function DashboardPage() {
   const user = await getSessionUser();
-  const where = user?.role === "admin" ? {} : user?.role === "leader" ? { leaderId: user.id } : { assignedStaffId: user?.id };
+  const scope = user ? buildPhoneRecordScope(user) : { id: "__never__" };
+  const where = { AND: [scope] };
 
   const [total, withoutAssignee, withStatus, latest] = await Promise.all([
     db.phoneRecord.count({ where }),
-    db.phoneRecord.count({ where: { ...where, assignedStaffId: null } }),
-    db.phoneRecord.count({ where: { ...where, statusText: { not: null } } }),
+    db.phoneRecord.count({ where: { AND: [scope, { assignedStaffId: null }] } }),
+    db.phoneRecord.count({ where: { AND: [scope, { statusText: { not: null } }] } }),
     db.phoneRecord.findMany({ where, take: 10, orderBy: { updatedAt: "desc" }, include: { assignedStaff: true } }),
   ]);
 

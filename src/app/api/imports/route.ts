@@ -4,9 +4,17 @@ import { db } from "@/lib/db";
 
 export async function GET() {
   const currentUser = await getSessionUser();
-  if (!currentUser) return forbidden();
+  if (!currentUser || currentUser.role === "staff") return forbidden();
 
-  const where = currentUser.role === "admin" ? {} : { importedByUserId: currentUser.id };
+  const where =
+    currentUser.role === "admin"
+      ? {}
+      : {
+          OR: [
+            { importedByUserId: currentUser.id },
+            { assignedStaff: { is: { teamLeaderId: currentUser.id } } },
+          ],
+        };
   const items = await db.importJob.findMany({
     where,
     orderBy: { createdAt: "desc" },

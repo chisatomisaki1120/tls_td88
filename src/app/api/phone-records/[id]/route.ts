@@ -16,7 +16,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   const { id } = await params;
   const item = await db.phoneRecord.findUnique({ where: { id }, include: { assignedStaff: true, leader: true } });
   if (!item) return notFound("Không tìm thấy record");
-  if (!canAccessRecord(currentUser.role, currentUser.id, item)) return forbidden();
+  if (!(await canAccessRecord(currentUser.role, currentUser.id, item))) return forbidden();
   return ok({ item });
 }
 
@@ -27,7 +27,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const { id } = await params;
     const existing = await db.phoneRecord.findUnique({ where: { id } });
     if (!existing) return notFound("Không tìm thấy record");
-    if (!canAccessRecord(currentUser.role, currentUser.id, existing)) return forbidden();
+    if (!(await canAccessRecord(currentUser.role, currentUser.id, existing))) return forbidden();
 
     const body = await request.json().catch(() => null);
     const parsed = patchSchema.safeParse(body);

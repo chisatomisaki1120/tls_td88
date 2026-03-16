@@ -18,7 +18,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const { id } = await params;
   const existing = await db.phoneRecord.findUnique({ where: { id } });
   if (!existing) return notFound("Không tìm thấy record");
-  if (!canAccessRecord(currentUser.role, currentUser.id, existing)) return forbidden();
+  if (!(await canAccessRecord(currentUser.role, currentUser.id, existing))) return forbidden();
 
   const item = await db.phoneRecord.update({
     where: { id },
