@@ -56,9 +56,6 @@ export function LoginForm() {
           {loading ? "Đang đăng nhập..." : "Đăng nhập"}
         </Button>
       </form>
-      <div className="rounded-lg bg-slate-50 p-3 text-xs text-slate-600">
-        Tài khoản seed: admin / admin123
-      </div>
     </Card>
   );
 }
