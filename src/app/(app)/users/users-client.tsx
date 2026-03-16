@@ -19,7 +19,7 @@ type LeaderOption = { id: string; username: string };
 
 export function UsersClient({
   initialUsers,
-  leaders,
+  leaders: _leaders,
   currentRole,
   currentUserId,
 }: {
@@ -29,17 +29,21 @@ export function UsersClient({
   currentUserId: string;
 }) {
   const [users, setUsers] = useState(initialUsers);
+  const allLeaders = useMemo(
+    () => users.filter((user) => user.role === "leader").map((user) => ({ id: user.id, username: user.username })),
+    [users],
+  );
+  const visibleLeaders = useMemo(
+    () => (currentRole === "leader" ? allLeaders.filter((leader) => leader.id === currentUserId) : allLeaders),
+    [allLeaders, currentRole, currentUserId],
+  );
   const [form, setForm] = useState({
     username: "",
     password: "",
     role: currentRole === "leader" ? "staff" : "staff",
-    teamLeaderId: currentRole === "leader" ? currentUserId : leaders[0]?.id || "",
+    teamLeaderId: currentRole === "leader" ? currentUserId : "",
   });
   const [message, setMessage] = useState<string | null>(null);
-  const visibleLeaders = useMemo(
-    () => (currentRole === "leader" ? leaders.filter((leader) => leader.id === currentUserId) : leaders),
-    [currentRole, currentUserId, leaders],
-  );
 
   async function createUser() {
     const payload = {
@@ -70,7 +74,7 @@ export function UsersClient({
       username: "",
       password: "",
       role: currentRole === "leader" ? "staff" : "staff",
-      teamLeaderId: currentRole === "leader" ? currentUserId : leaders[0]?.id || "",
+      teamLeaderId: currentRole === "leader" ? currentUserId : "",
     });
   }
 
@@ -190,7 +194,7 @@ export function UsersClient({
                     {currentRole === "admin" && user.role === "staff" ? (
                       <Select value={user.teamLeaderId || ""} onChange={(e) => void updateTeamLeader(user, e.target.value)}>
                         <option value="">Chọn leader</option>
-                        {leaders.map((leader) => (
+                        {allLeaders.map((leader) => (
                           <option key={leader.id} value={leader.id}>{leader.username}</option>
                         ))}
                       </Select>
