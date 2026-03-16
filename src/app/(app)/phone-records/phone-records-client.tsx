@@ -9,7 +9,7 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { formatDateTime } from "@/lib/utils";
 
-type UserOption = { id: string; name: string; role: "admin" | "leader" | "staff" };
+type UserOption = { id: string; username: string; role: "admin" | "leader" | "staff" };
 type RecordItem = {
   id: string;
   phoneLast9: string;
@@ -103,7 +103,7 @@ export function PhoneRecordsClient({
           <Select value={assignedStaffId} onChange={(e) => setAssignedStaffId(e.target.value)}>
             <option value="">Tất cả nhân viên</option>
             {staffOptions.map((item) => (
-              <option key={item.id} value={item.id}>{item.name}</option>
+              <option key={item.id} value={item.id}>{item.username}</option>
             ))}
           </Select>
           <Button variant="secondary" onClick={() => { setQ(""); setStatus(""); setAssignedStaffId(""); }}>Xóa bộ lọc</Button>
@@ -124,7 +124,7 @@ export function PhoneRecordsClient({
                 <tr key={item.id} className="cursor-pointer border-b border-slate-100 hover:bg-slate-50" onClick={() => setSelectedId(item.id)}>
                   <td className="px-3 py-3 font-mono font-semibold">{item.phoneLast9}</td>
                   <td className="px-3 py-3"><Badge>{item.statusText || "Chưa có"}</Badge></td>
-                  <td className="px-3 py-3">{item.assignedStaff?.name || "Chưa gán"}</td>
+                  <td className="px-3 py-3">{item.assignedStaff?.username || "Chưa gán"}</td>
                   <td className="max-w-[240px] truncate px-3 py-3 text-slate-600">{item.noteText || "-"}</td>
                   <td className="px-3 py-3 text-slate-500">{formatDateTime(item.updatedAt)}</td>
                 </tr>
@@ -163,13 +163,13 @@ export function PhoneRecordsClient({
               <Select disabled={!canAssign} value={selected.assignedStaffId || ""} onChange={(e) => setRecords((prev) => prev.map((item) => item.id === selected.id ? { ...item, assignedStaffId: e.target.value || null, assignedStaff: staffOptions.find((staff) => staff.id === e.target.value) || null } : item))}>
                 <option value="">Chưa gán</option>
                 {staffOptions.map((item) => (
-                  <option key={item.id} value={item.id}>{item.name}</option>
+                  <option key={item.id} value={item.id}>{item.username}</option>
                 ))}
               </Select>
             </div>
             <div className="rounded-xl bg-slate-50 p-3 text-sm text-slate-600">
               <div>Số gốc: {selected.phoneRaw}</div>
-              <div>Leader: {selected.leader?.name || "-"}</div>
+              <div>Leader: {selected.leader?.username || "-"}</div>
               <div>Cập nhật: {formatDateTime(selected.updatedAt)}</div>
             </div>
             <div className="flex flex-wrap gap-3">

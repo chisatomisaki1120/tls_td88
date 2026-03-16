@@ -32,8 +32,8 @@ export async function GET(request: NextRequest) {
     where,
     orderBy: { updatedAt: "desc" },
     include: {
-      assignedStaff: { select: { id: true, name: true, role: true } },
-      leader: { select: { id: true, name: true, role: true } },
+      assignedStaff: { select: { id: true, username: true, role: true } },
+      leader: { select: { id: true, username: true, role: true } },
     },
   });
 

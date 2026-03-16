@@ -8,17 +8,14 @@ import { Select } from "@/components/ui/select";
 
 type UserItem = {
   id: string;
-  name: string;
   username: string;
   role: "admin" | "leader" | "staff";
-  employeeCode: string | null;
-  phone: string | null;
   isActive: boolean;
 };
 
 export function UsersClient({ initialUsers }: { initialUsers: UserItem[] }) {
   const [users, setUsers] = useState(initialUsers);
-  const [form, setForm] = useState({ name: "", username: "", password: "", role: "staff", employeeCode: "", phone: "" });
+  const [form, setForm] = useState({ username: "", password: "", role: "staff" });
   const [message, setMessage] = useState<string | null>(null);
 
   async function createUser() {
@@ -34,7 +31,7 @@ export function UsersClient({ initialUsers }: { initialUsers: UserItem[] }) {
     }
     setUsers((prev) => [data.item, ...prev]);
     setMessage("Đã tạo user");
-    setForm({ name: "", username: "", password: "", role: "staff", employeeCode: "", phone: "" });
+    setForm({ username: "", password: "", role: "staff" });
   }
 
   async function toggleActive(user: UserItem) {
@@ -52,11 +49,8 @@ export function UsersClient({ initialUsers }: { initialUsers: UserItem[] }) {
       <Card className="space-y-4">
         <div className="text-lg font-semibold">Tạo leader / staff</div>
         <div className="grid gap-3 md:grid-cols-3">
-          <Input placeholder="Tên" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <Input placeholder="Username" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} />
           <Input placeholder="Mật khẩu" type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
-          <Input placeholder="Mã nhân viên" value={form.employeeCode} onChange={(e) => setForm({ ...form, employeeCode: e.target.value })} />
-          <Input placeholder="Số điện thoại" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
           <Select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as "leader" | "staff" })}>
             <option value="staff">Staff</option>
             <option value="leader">Leader</option>
@@ -74,10 +68,8 @@ export function UsersClient({ initialUsers }: { initialUsers: UserItem[] }) {
           <table className="min-w-full text-left text-sm">
             <thead className="border-b border-slate-200 text-slate-500">
               <tr>
-                <th className="px-3 py-2">Tên</th>
                 <th className="px-3 py-2">Username</th>
                 <th className="px-3 py-2">Vai trò</th>
-                <th className="px-3 py-2">Mã NV</th>
                 <th className="px-3 py-2">Trạng thái</th>
                 <th className="px-3 py-2 text-right">Hành động</th>
               </tr>
@@ -85,10 +77,8 @@ export function UsersClient({ initialUsers }: { initialUsers: UserItem[] }) {
             <tbody>
               {users.map((user) => (
                 <tr key={user.id} className="border-b border-slate-100">
-                  <td className="px-3 py-3">{user.name}</td>
                   <td className="px-3 py-3">{user.username}</td>
                   <td className="px-3 py-3 uppercase">{user.role}</td>
-                  <td className="px-3 py-3">{user.employeeCode || "-"}</td>
                   <td className="px-3 py-3">{user.isActive ? "Đang hoạt động" : "Đã khóa"}</td>
                   <td className="px-3 py-3 text-right">
                     {user.role === "admin" ? null : (

@@ -1,15 +1,42 @@
+import { redirect } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
+import { getSessionUser } from "@/lib/auth";
+import { db } from "@/lib/db";
+import { ImportsClient } from "./imports-client";
 
-export default function ImportsPage() {
+export default async function ImportsPage() {
+  const currentUser = await getSessionUser();
+  if (!currentUser) redirect("/login");
+  if (currentUser.role === "staff") redirect("/dashboard");
+
+  const [staffOptions, jobsRaw] = await Promise.all([
+    db.user.findMany({ where: { role: "staff", isActive: true }, select: { id: true, username: true, role: true } }),
+    db.importJob.findMany({
+      where: currentUser.role === "admin" ? {} : { importedByUserId: currentUser.id },
+      orderBy: { createdAt: "desc" },
+      include: {
+        assignedStaff: { select: { id: true, username: true, role: true } },
+        duplicates: { orderBy: { rowNumber: "asc" } },
+      },
+      take: 10,
+    }),
+  ]);
+
+  const jobs = jobsRaw.map((job) => ({
+    ...job,
+    createdAt: job.createdAt.toISOString(),
+  }));
+
   return (
     <div className="space-y-6">
-      <PageHeader title="Import dữ liệu" description="Phase 2 sẽ xử lý import file .xlsx từ cột A theo spec đã chốt." />
+      <PageHeader title="Import dữ liệu" description="Upload file .xlsx, đọc cột A, chuẩn hóa 9 số cuối và bỏ số trùng theo spec." />
       <Card>
         <p className="text-sm text-slate-600">
-          Trang này đã được giữ chỗ. Ở phase tiếp theo sẽ có upload file, chuẩn hóa 9 số cuối, kiểm tra trùng lặp và danh sách số bị trùng.
+          Quy tắc hiện tại: chỉ nhận file <strong>.xlsx</strong>, chỉ đọc <strong>cột A</strong>, bỏ bản ghi mới nếu trùng 9 số cuối với dữ liệu cũ hoặc trùng ngay trong cùng file.
         </p>
       </Card>
+      <ImportsClient staffOptions={staffOptions} initialJobs={jobs} />
     </div>
   );
 }

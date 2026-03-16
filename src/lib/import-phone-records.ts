@@ -135,8 +135,8 @@ export async function runPhoneRecordImport(args: RunImportArgs) {
       finishedAt: new Date(),
     },
     include: {
-      assignedStaff: { select: { id: true, name: true, role: true } },
-      importedBy: { select: { id: true, name: true, role: true } },
+      assignedStaff: { select: { id: true, username: true, role: true } },
+      importedBy: { select: { id: true, username: true, role: true } },
     },
   });
 

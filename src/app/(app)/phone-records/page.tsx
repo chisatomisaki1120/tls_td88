@@ -12,11 +12,11 @@ export default async function PhoneRecordsPage() {
       where,
       orderBy: { updatedAt: "desc" },
       include: {
-        assignedStaff: { select: { id: true, name: true, role: true } },
-        leader: { select: { id: true, name: true, role: true } },
+        assignedStaff: { select: { id: true, username: true, role: true } },
+        leader: { select: { id: true, username: true, role: true } },
       },
     }),
-    db.user.findMany({ where: { role: "staff", isActive: true }, select: { id: true, name: true, role: true } }),
+    db.user.findMany({ where: { role: "staff", isActive: true }, select: { id: true, username: true, role: true } }),
   ]);
 
   const records = recordsRaw.map((item) => ({

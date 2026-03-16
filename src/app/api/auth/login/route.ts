@@ -29,5 +29,5 @@ export async function POST(request: NextRequest) {
 
   await createSession({ sub: user.id, username: user.username, role: user.role });
 
-  return ok({ user: { id: user.id, name: user.name, role: user.role } });
+  return ok({ user: { id: user.id, username: user.username, role: user.role } });
 }

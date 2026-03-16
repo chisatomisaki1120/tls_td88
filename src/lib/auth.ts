@@ -65,11 +65,9 @@ export async function getSessionUser() {
       where: { id: payload.sub },
       select: {
         id: true,
-        name: true,
         username: true,
         role: true,
         isActive: true,
-        employeeCode: true,
       },
     });
 

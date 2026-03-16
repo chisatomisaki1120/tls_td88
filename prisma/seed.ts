@@ -4,6 +4,8 @@ import { PrismaClient, UserRole } from "@prisma/client";
 const prisma = new PrismaClient();
 
 async function main() {
+  await prisma.importDuplicate.deleteMany();
+  await prisma.importJob.deleteMany();
   await prisma.phoneRecord.deleteMany();
   await prisma.user.deleteMany();
 
@@ -13,45 +15,33 @@ async function main() {
 
   const admin = await prisma.user.create({
     data: {
-      name: "Admin",
       username: "admin",
       role: UserRole.admin,
-      employeeCode: "ADM001",
       passwordHash,
-      phone: "0900000000",
     },
   });
 
   const leader = await prisma.user.create({
     data: {
-      name: "Leader 1",
       username: "leader1",
       role: UserRole.leader,
-      employeeCode: "LDR001",
       passwordHash: leaderPassword,
-      phone: "0911111111",
     },
   });
 
   const staffA = await prisma.user.create({
     data: {
-      name: "Nguyen Van A",
       username: "staffa",
       role: UserRole.staff,
-      employeeCode: "STF001",
       passwordHash: staffPassword,
-      phone: "0922222222",
     },
   });
 
   const staffB = await prisma.user.create({
     data: {
-      name: "Tran Thi B",
       username: "staffb",
       role: UserRole.staff,
-      employeeCode: "STF002",
       passwordHash: staffPassword,
-      phone: "0933333333",
     },
   });
 
