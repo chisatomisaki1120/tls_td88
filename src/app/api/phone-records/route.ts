@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
   const page = Math.max(Number(request.nextUrl.searchParams.get("page") || 1), 1);
   const requestedPageSize = Number(request.nextUrl.searchParams.get("pageSize") || 50);
   const pageSize = Math.min(Math.max(requestedPageSize, 1), 50);
-  const baseWhere = { ...(q ? { OR: [{ phoneLast9: { startsWith: q } }, { phoneRaw: { startsWith: q } }] } : {}), ...(assignedStaffId ? { assignedStaffId } : {}), ...(status ? { statusText: status } : {}) };
+  const baseWhere = { ...(q ? { OR: [{ phoneLast9: { startsWith: q } }, { phoneRaw: { startsWith: q } }] } : {}), ...(assignedStaffId ? { assignedStaffId } : {}), ...(status === "__has__" ? { statusText: { not: null } } : status === "__none__" ? { statusText: null } : status ? { statusText: status } : {}) };
   const scope = await buildPhoneRecordScope(currentUser);
   const where = { AND: [baseWhere, scope] };
   const [total, items] = await Promise.all([

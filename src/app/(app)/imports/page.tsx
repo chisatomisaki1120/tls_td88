@@ -12,7 +12,15 @@ export default async function ImportsPage() {
   if (!(await canManageUsers(currentUser.role, currentUser.id))) redirect("/dashboard");
 
   const staffScope = await buildStaffScope(currentUser);
-  const where = currentUser.role === "admin" ? {} : { OR: [{ importedByUserId: currentUser.id }, { assignedStaff: { is: { team: { is: { leaderId: currentUser.id } } } } }] };
+  let importWhere = {};
+  if (currentUser.role !== "admin") {
+    const teamMembers = await db.user.findMany({
+      where: { team: { leaderId: currentUser.id } },
+      select: { id: true },
+    });
+    const memberIds = teamMembers.map((m) => m.id);
+    importWhere = { OR: [{ importedByUserId: currentUser.id }, ...(memberIds.length > 0 ? [{ assignedStaffId: { in: memberIds } }] : [])] };
+  }
 
   const [staffOptions, jobs] = await Promise.all([
     db.user.findMany({
@@ -20,7 +28,7 @@ export default async function ImportsPage() {
       select: { id: true, username: true, role: true },
     }),
     db.importJob.findMany({
-      where,
+      where: importWhere,
       orderBy: { createdAt: "desc" },
       take: 50,
       include: {

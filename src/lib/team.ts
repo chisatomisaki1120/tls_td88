@@ -4,6 +4,14 @@ import { db } from "@/lib/db";
 
 type DbLike = typeof db | Prisma.TransactionClient;
 
+const userMinSelect = { id: true, username: true, role: true } as const;
+
+/** Lean include for PhoneRecord responses — avoids fetching full User rows */
+export const phoneRecordInclude = {
+  assignedStaff: { select: userMinSelect },
+  leader: { select: userMinSelect },
+} as const;
+
 export const teamSummarySelect = Prisma.validator<Prisma.TeamSelect>()({
   id: true,
   name: true,

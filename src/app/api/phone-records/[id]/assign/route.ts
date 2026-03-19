@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { badRequest, forbidden, notFound, ok } from "@/lib/api";
 import { getSessionUser } from "@/lib/auth";
 import { canAccessRecord, canAssignRecord } from "@/lib/permissions";
-import { resolveTeamLeadIdForUser } from "@/lib/team";
+import { phoneRecordInclude, resolveTeamLeadIdForUser } from "@/lib/team";
 
 const schema = z.object({ assignedStaffId: z.string().nullable() });
 
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       leaderId: nextLeaderId,
       updatedById: currentUser.id,
     },
-    include: { assignedStaff: true, leader: true },
+    include: phoneRecordInclude,
   });
 
   return ok({ item });

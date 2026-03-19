@@ -375,6 +375,8 @@ export function PhoneRecordsClient({
             }}
           >
             <option value="">Tất cả ghi chú/status</option>
+            <option value="__has__">Đã có ghi chú</option>
+            <option value="__none__">Chưa có ghi chú</option>
             {autocompleteSuggestions.slice(0, 50).map((item) => (
               <option key={item} value={item}>{item}</option>
             ))}

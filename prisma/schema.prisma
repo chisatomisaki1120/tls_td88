@@ -51,6 +51,8 @@ model User {
   assignedJobs    ImportJob[]   @relation("AssignedStaffJobs")
 
   @@index([teamId])
+  @@index([role, createdAt])
+  @@index([role, isActive])
   @@map("users")
 }
 
@@ -105,6 +107,9 @@ model ImportJob {
   records       PhoneRecord[]
   duplicates    ImportDuplicate[]
 
+  @@index([createdAt])
+  @@index([importedByUserId])
+  @@index([assignedStaffId])
   @@map("import_jobs")
 }
 

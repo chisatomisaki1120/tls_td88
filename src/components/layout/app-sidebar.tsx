@@ -9,14 +9,14 @@ type AppRole = "admin" | "staff";
 type SidebarItem = {
   href: string;
   label: string;
-  roles?: AppRole[];
+  managerOnly?: boolean;
 };
 
 const sidebarItems: SidebarItem[] = [
   { href: "/dashboard", label: "Tổng quan" },
   { href: "/phone-records", label: "Số điện thoại" },
-  { href: "/imports", label: "Import", roles: ["admin", "staff"] },
-  { href: "/users", label: "Người dùng", roles: ["admin", "staff"] },
+  { href: "/imports", label: "Import", managerOnly: true },
+  { href: "/users", label: "Người dùng", managerOnly: true },
 ];
 
 function SidebarLink({ href, label, active }: { href: string; label: string; active: boolean }) {
@@ -33,9 +33,9 @@ function SidebarLink({ href, label, active }: { href: string; label: string; act
   );
 }
 
-export function AppSidebar({ role }: { role: AppRole }) {
+export function AppSidebar({ role, isManager }: { role: AppRole; isManager: boolean }) {
   const pathname = usePathname();
-  const visibleItems = sidebarItems.filter((item) => !item.roles || item.roles.includes(role));
+  const visibleItems = sidebarItems.filter((item) => !item.managerOnly || isManager);
 
   return (
     <aside className="hidden w-64 shrink-0 border-r border-slate-200 bg-white px-4 py-6 md:block">

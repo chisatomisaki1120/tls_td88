@@ -37,7 +37,7 @@ export default async function PhoneRecordsPage({ searchParams }: { searchParams?
     const baseWhere = {
       ...(q ? { OR: [{ phoneLast9: { startsWith: q } }, { phoneRaw: { startsWith: q } }] } : {}),
       ...(assignedStaffId ? { assignedStaffId } : {}),
-      ...(status ? { statusText: status } : {}),
+      ...(status === "__has__" ? { statusText: { not: null } } : status === "__none__" ? { statusText: null } : status ? { statusText: status } : {}),
     };
     const where = { AND: [baseWhere, scope] };
 

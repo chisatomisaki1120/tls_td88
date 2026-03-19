@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { badRequest, forbidden, notFound, ok } from "@/lib/api";
 import { getSessionUser } from "@/lib/auth";
 import { canAccessRecord } from "@/lib/permissions";
+import { phoneRecordInclude } from "@/lib/team";
 
 const schema = z.object({ statusText: z.string().nullable() });
 
@@ -20,10 +21,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!existing) return notFound("Không tìm thấy record");
   if (!(await canAccessRecord(currentUser.role, currentUser.id, existing))) return forbidden();
 
+  const statusText = parsed.data.statusText?.trim() || null;
+
   const item = await db.phoneRecord.update({
     where: { id },
-    data: { statusText: parsed.data.statusText, updatedById: currentUser.id },
-    include: { assignedStaff: true, leader: true },
+    data: {
+      statusText,
+      updatedById: currentUser.id,
+    },
+    include: phoneRecordInclude,
   });
 
   return ok({ item });
