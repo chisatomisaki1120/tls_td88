@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
@@ -16,13 +16,6 @@ type ImportJobItem = {
   status: string;
   createdAt: string;
   assignedStaff: { id: string; username: string; role: string } | null;
-  duplicates: Array<{
-    id: string;
-    rowNumber: number;
-    phoneRaw: string;
-    phoneLast9: string | null;
-    reason: string;
-  }>;
 };
 
 type ImportResult = {
@@ -171,16 +164,25 @@ export function ImportsClient({ staffOptions, initialJobs }: { staffOptions: Sta
   const [message, setMessage] = useState<string | null>(null);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [jobs, setJobs] = useState(initialJobs);
+  const [loadingJobs, setLoadingJobs] = useState(false);
 
   async function readJson(response: Response) {
     return response.json().catch(() => ({}));
   }
 
   async function refreshJobs() {
-    const jobsResponse = await fetch("/api/imports");
+    setLoadingJobs(true);
+    const jobsResponse = await fetch("/api/imports", { cache: "no-store" });
     const jobsData = await readJson(jobsResponse);
     if (jobsResponse.ok) setJobs(jobsData.items);
+    setLoadingJobs(false);
   }
+
+  useEffect(() => {
+    if (initialJobs.length === 0) {
+      void refreshJobs();
+    }
+  }, [initialJobs.length]);
 
   async function submitImport() {
     if (!selectedFile) {
@@ -264,7 +266,7 @@ export function ImportsClient({ staffOptions, initialJobs }: { staffOptions: Sta
         </Card>
       ) : null}
 
-      <ImportHistoryTable jobs={jobs} />
+      {loadingJobs ? <Card className="text-sm text-slate-500">Đang tải lịch sử import...</Card> : <ImportHistoryTable jobs={jobs} />}
     </div>
   );
 }

@@ -29,9 +29,6 @@ export default async function DashboardPage() {
   const scope = user ? await buildPhoneRecordScope(user) : { id: "__never__" };
   const where = { AND: [scope] };
   const leaderView = user ? await isTeamLeader(user.id) : false;
-  const pageDescription = !leaderView && user?.role === "staff"
-    ? "Chỉ hiển thị danh sách data được gắn cho bạn."
-    : "Snapshot nhanh tình hình dữ liệu số điện thoại.";
   const recentTitle = !leaderView && user?.role === "staff" ? "Danh sách data của bạn" : "Cập nhật gần đây";
 
   const [total, withoutAssignee, withStatus, latest] = await Promise.all([
@@ -42,13 +39,18 @@ export default async function DashboardPage() {
       where,
       take: 10,
       orderBy: { updatedAt: "desc" },
-      include: { assignedStaff: true },
+      select: {
+        id: true,
+        phoneLast9: true,
+        statusText: true,
+        assignedStaff: { select: { username: true } },
+      },
     }),
   ]);
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Tổng quan" description={pageDescription} />
+      <PageHeader title="Tổng quan" />
 
       <div className="grid gap-4 md:grid-cols-3">
         <StatCard label="Tổng số record" value={total} />

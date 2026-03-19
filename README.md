@@ -15,6 +15,7 @@ Default local database:
 ```env
 DATABASE_URL="file:./dev.db"
 SESSION_SECRET="change-me"
+PORT=3000
 ```
 
 Run locally:

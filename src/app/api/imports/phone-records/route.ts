@@ -13,6 +13,7 @@ export async function POST(request: Request) {
     const assignedStaffId = String(formData.get("assignedStaffId") || "").trim() || null;
     if (!(file instanceof File)) return badRequest("Thiếu file import");
     if (!file.name.toLowerCase().endsWith(".xlsx")) return badRequest("Chỉ hỗ trợ file .xlsx");
+    if (file.size > 50 * 1024 * 1024) return badRequest("File quá lớn (tối đa 50MB)");
     if (!(await canAssignRecord(currentUser.role, currentUser.id, assignedStaffId))) return badRequest("Không thể gán data cho nhân viên ngoài tổ");
     if (assignedStaffId) {
       const staff = await db.user.findUnique({ where: { id: assignedStaffId } });
@@ -22,6 +23,6 @@ export async function POST(request: Request) {
     const result = await runPhoneRecordImport({ fileName: file.name, fileBuffer: buffer, importedByUserId: currentUser.id, importedByRole: currentUser.role, assignedStaffId });
     return ok(result);
   } catch (error) {
-    return serverError(error instanceof Error ? error.message : "Import thất bại");
+    return serverError("Import thất bại");
   }
 }

@@ -6,7 +6,7 @@ import { getSessionUser } from "@/lib/auth";
 import { canManageUsers } from "@/lib/permissions";
 import { teamSummarySelect } from "@/lib/team";
 
-const createTeamSchema = z.object({ name: z.string().min(1), leaderId: z.string().nullable().optional() });
+const createTeamSchema = z.object({ name: z.string().min(1).max(100), leaderId: z.string().nullable().optional() });
 
 export async function GET() {
   const currentUser = await getSessionUser();
@@ -29,6 +29,6 @@ export async function POST(request: NextRequest) {
     const item = await db.team.create({ data: { name: parsed.data.name, leaderId: parsed.data.leaderId ?? null }, select: teamSummarySelect });
     return ok({ item });
   } catch (error) {
-    return serverError(error instanceof Error ? error.message : "Không thể tạo tổ");
+    return serverError("Không thể tạo tổ");
   }
 }

@@ -5,7 +5,7 @@ import { badRequest, forbidden, notFound, ok, serverError } from "@/lib/api";
 import { getSessionUser } from "@/lib/auth";
 import { teamSummarySelect } from "@/lib/team";
 
-const updateTeamSchema = z.object({ name: z.string().min(1).optional(), leaderId: z.string().nullable().optional() });
+const updateTeamSchema = z.object({ name: z.string().min(1).max(100).optional(), leaderId: z.string().nullable().optional() });
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -24,6 +24,6 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const item = await db.team.update({ where: { id }, data: { name: parsed.data.name, leaderId: parsed.data.leaderId }, select: teamSummarySelect });
     return ok({ item });
   } catch (error) {
-    return serverError(error instanceof Error ? error.message : "Không thể cập nhật tổ");
+    return serverError("Không thể cập nhật tổ");
   }
 }

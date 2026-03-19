@@ -12,35 +12,28 @@ export default async function ImportsPage() {
   if (!(await canManageUsers(currentUser.role, currentUser.id))) redirect("/dashboard");
 
   const staffScope = await buildStaffScope(currentUser);
-  const importWhere = currentUser.role === "admin"
-    ? {}
-    : {
-        OR: [
-          { importedByUserId: currentUser.id },
-          { assignedStaff: { is: { team: { is: { leaderId: currentUser.id } } } } },
-        ],
-      };
+  const where = currentUser.role === "admin" ? {} : { OR: [{ importedByUserId: currentUser.id }, { assignedStaff: { is: { team: { is: { leaderId: currentUser.id } } } } }] };
 
-  const [staffOptions, jobsRaw] = await Promise.all([
-    db.user.findMany({ where: { AND: [staffScope, { isActive: true }] }, select: { id: true, username: true, role: true } }),
+  const [staffOptions, jobs] = await Promise.all([
+    db.user.findMany({
+      where: { AND: [staffScope, { isActive: true }] },
+      select: { id: true, username: true, role: true },
+    }),
     db.importJob.findMany({
-      where: importWhere,
+      where,
       orderBy: { createdAt: "desc" },
+      take: 50,
       include: {
         assignedStaff: { select: { id: true, username: true, role: true } },
-        duplicates: { orderBy: { rowNumber: "asc" } },
+        importedBy: { select: { id: true, username: true, role: true } },
       },
-      take: 10,
     }),
   ]);
-
-  const jobs = jobsRaw.map((job) => ({ ...job, createdAt: job.createdAt.toISOString() }));
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Import dữ liệu"
-        description="Upload file .xlsx, đọc cột A, chuẩn hóa 9 số cuối và bỏ số trùng theo spec."
       />
 
       <Card>
@@ -50,7 +43,7 @@ export default async function ImportsPage() {
         </p>
       </Card>
 
-      <ImportsClient staffOptions={staffOptions} initialJobs={jobs} />
+      <ImportsClient staffOptions={staffOptions} initialJobs={JSON.parse(JSON.stringify(jobs))} />
     </div>
   );
 }

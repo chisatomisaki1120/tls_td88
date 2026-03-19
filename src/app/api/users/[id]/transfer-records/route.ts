@@ -52,6 +52,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     return ok({ movedCount: moved.count });
   } catch (error) {
-    return serverError(error instanceof Error ? error.message : "Không thể chuyển dữ liệu");
+    return serverError("Không thể chuyển dữ liệu");
   }
 }

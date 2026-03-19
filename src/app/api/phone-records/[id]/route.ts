@@ -6,8 +6,8 @@ import { getSessionUser } from "@/lib/auth";
 import { canAccessRecord } from "@/lib/permissions";
 
 const patchSchema = z.object({
-  statusText: z.string().nullable().optional(),
-  noteText: z.string().nullable().optional(),
+  statusText: z.string().max(1000).nullable().optional(),
+  noteText: z.string().max(2000).nullable().optional(),
 });
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -45,6 +45,6 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     return ok({ item });
   } catch (error) {
-    return serverError(error instanceof Error ? error.message : "Không thể cập nhật record");
+    return serverError("Không thể cập nhật record");
   }
 }

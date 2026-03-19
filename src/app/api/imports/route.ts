@@ -11,10 +11,10 @@ export async function GET() {
   const items = await db.importJob.findMany({
     where,
     orderBy: { createdAt: "desc" },
+    take: 50,
     include: {
       assignedStaff: { select: { id: true, username: true, role: true } },
       importedBy: { select: { id: true, username: true, role: true } },
-      duplicates: { orderBy: { rowNumber: "asc" } },
     },
   });
 

@@ -6,7 +6,7 @@ import { getSessionUser, hashPassword } from "@/lib/auth";
 import { canManageUsers } from "@/lib/permissions";
 import { findLeadingTeam, userSummarySelect, withRecordCount } from "@/lib/team";
 
-const updateUserSchema = z.object({ username: z.string().min(1).optional(), password: z.string().min(6).optional(), teamId: z.string().nullable().optional() });
+const updateUserSchema = z.object({ username: z.string().min(1).max(100).optional(), password: z.string().min(6).max(255).optional(), teamId: z.string().nullable().optional() });
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -60,7 +60,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     return ok({ item: withRecordCount(updated) });
   } catch (error) {
-    return serverError(error instanceof Error ? error.message : "Không thể cập nhật user");
+    if (error instanceof Error && error.message.includes("Unique constraint")) {
+      return badRequest("Username đã tồn tại");
+    }
+    return serverError("Không thể cập nhật user");
   }
 }
 
@@ -83,6 +86,6 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
     await db.user.delete({ where: { id } });
     return ok({ success: true });
   } catch (error) {
-    return serverError(error instanceof Error ? error.message : "Không thể xóa user");
+    return serverError("Không thể xóa user");
   }
 }

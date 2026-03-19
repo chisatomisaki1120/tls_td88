@@ -6,7 +6,7 @@ import { hashPassword, getSessionUser } from "@/lib/auth";
 import { buildStaffScope, canManageUsers } from "@/lib/permissions";
 import { findLeadingTeam, teamSummarySelect, userSummarySelect, withRecordCount } from "@/lib/team";
 
-const createUserSchema = z.object({ username: z.string().min(1), password: z.string().min(6), teamId: z.string().nullable().optional() });
+const createUserSchema = z.object({ username: z.string().min(1).max(100), password: z.string().min(6).max(255), teamId: z.string().nullable().optional() });
 
 export async function GET() {
   const user = await getSessionUser();
@@ -38,6 +38,9 @@ export async function POST(request: NextRequest) {
     const created = await db.user.create({ data: { username: parsed.data.username, role: "staff", passwordHash: await hashPassword(parsed.data.password), teamId }, select: userSummarySelect });
     return ok({ item: withRecordCount(created) });
   } catch (error) {
-    return serverError(error instanceof Error ? error.message : "Không thể tạo user");
+    if (error instanceof Error && error.message.includes("Unique constraint")) {
+      return badRequest("Username đã tồn tại");
+    }
+    return serverError("Không thể tạo user");
   }
 }

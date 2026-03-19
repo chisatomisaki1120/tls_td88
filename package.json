@@ -3,23 +3,23 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "db:prepare": "tsx scripts/db-prepare.ts",
+    "predev": "npm run db:prepare",
+    "dev": "node scripts/run-next-with-env-port.js dev",
+    "prebuild": "npm run db:prepare",
     "build": "next build",
-    "start": "next start",
+    "start": "node scripts/run-next-with-env-port.js start",
     "postinstall": "prisma generate",
     "lint": "eslint",
     "test:permissions": "npm run db:seed && tsx --tsconfig tsconfig.json scripts/test-permissions.ts",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
-    "db:push:turso": "tsx scripts/db-push-libsql.ts",
     "db:seed": "prisma db seed"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
-    "@libsql/client": "^0.15.15",
-    "@prisma/adapter-libsql": "^6.16.2",
     "@prisma/client": "^6.16.2",
     "bcryptjs": "^3.0.3",
     "dotenv": "^17.3.1",

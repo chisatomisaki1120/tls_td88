@@ -80,8 +80,8 @@ const RecordRow = memo(function RecordRow({
   const datalistId = `status-suggestions-${item.id}`;
 
   return (
-    <div className="grid gap-4 rounded-2xl bg-slate-50 p-4 md:grid-cols-[1.1fr_1.1fr_auto] md:items-start">
-      <div className="space-y-2">
+    <div className="grid gap-2 rounded-xl bg-slate-50 p-3 md:grid-cols-[1.1fr_1.1fr_auto] md:items-start">
+      <div className="space-y-1">
         <div className="relative">
           <Input value={item.phoneRaw} readOnly className="bg-white pr-16 font-medium" />
           <button
@@ -93,7 +93,7 @@ const RecordRow = memo(function RecordRow({
         </div>
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-1">
         <div className="relative">
           <Input
             list={datalistId}
@@ -116,7 +116,7 @@ const RecordRow = memo(function RecordRow({
         </datalist>
       </div>
 
-      <div className="space-y-2 md:w-52">
+      <div className="space-y-1 md:w-52">
         {canAssign ? (
           <Select
             value={item.assignedStaffId || ""}
@@ -160,16 +160,31 @@ export function PhoneRecordsClient({
   const [assignedStaffId, setAssignedStaffId] = useState(initialFilters.assignedStaffId);
   const [message, setMessage] = useState<string | null>(null);
   const [pageInput, setPageInput] = useState(String(pagination.page));
+  const [currentPagination, setCurrentPagination] = useState(pagination);
+  const [loadingRecords] = useState(false);
   const saveTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const lastSavedSnapshotRef = useRef<Record<string, string>>({});
 
-  useEffect(() => {
+  // Sync local state when server props change (React recommended pattern)
+  const [prevInitialRecords, setPrevInitialRecords] = useState(initialRecords);
+  if (prevInitialRecords !== initialRecords) {
+    setPrevInitialRecords(initialRecords);
     setRecords(initialRecords);
-  }, [initialRecords]);
-
-  useEffect(() => {
+    setCurrentPagination(pagination);
     setPageInput(String(pagination.page));
-  }, [pagination.page]);
+  }
+
+  // Initialize snapshots for autosave change detection
+  useEffect(() => {
+    const snapshots: Record<string, string> = {};
+    for (const record of initialRecords) {
+      snapshots[record.id] = JSON.stringify({
+        statusText: record.statusText || "",
+        noteText: record.noteText || "",
+      });
+    }
+    lastSavedSnapshotRef.current = snapshots;
+  }, [initialRecords]);
 
   const autocompleteSuggestions = useMemo(() => {
     const dynamic = records
@@ -187,11 +202,34 @@ export function PhoneRecordsClient({
   }, [records]);
 
   useEffect(() => {
-    const timers = saveTimersRef.current;
     return () => {
+      const timers = saveTimersRef.current;
       Object.values(timers).forEach((timer) => clearTimeout(timer));
+      saveTimersRef.current = {};
     };
   }, []);
+
+  useEffect(() => {
+    function flushPendingSaves() {
+      const timers = saveTimersRef.current;
+      Object.entries(timers).forEach(([recordId, timer]) => {
+        clearTimeout(timer);
+        const record = records.find((r) => r.id === recordId);
+        if (record) {
+          navigator.sendBeacon(
+            `/api/phone-records/${recordId}`,
+            new Blob(
+              [JSON.stringify({ statusText: record.statusText, noteText: record.noteText })],
+              { type: "application/json" },
+            ),
+          );
+        }
+      });
+      saveTimersRef.current = {};
+    }
+    window.addEventListener("beforeunload", flushPendingSaves);
+    return () => window.removeEventListener("beforeunload", flushPendingSaves);
+  }, [records]);
 
   function updateUrl(next: { q?: string; status?: string; assignedStaffId?: string; page?: number }) {
     const params = new URLSearchParams(searchParams.toString());
@@ -225,7 +263,7 @@ export function PhoneRecordsClient({
 
     const data = await response.json().catch(() => null);
 
-    if (!response.ok) {
+    if (!response.ok || !data?.item) {
       setMessage(data?.error || "Không thể lưu tự động");
       return;
     }
@@ -254,11 +292,6 @@ export function PhoneRecordsClient({
       statusText: nextStatusText || "",
       noteText: nextNoteText || "",
     });
-
-    if (!lastSavedSnapshotRef.current[recordId]) {
-      lastSavedSnapshotRef.current[recordId] = snapshot;
-      return;
-    }
 
     if (lastSavedSnapshotRef.current[recordId] === snapshot) {
       return;
@@ -318,7 +351,7 @@ export function PhoneRecordsClient({
   }
 
   function goToPage() {
-    const nextPage = Math.min(Math.max(Number(pageInput || 1), 1), pagination.totalPages);
+    const nextPage = Math.min(Math.max(Number(pageInput || 1), 1), currentPagination.totalPages);
     updateUrl({ page: nextPage, q, status, assignedStaffId });
   }
 
@@ -364,7 +397,7 @@ export function PhoneRecordsClient({
         </div>
       </Card>
 
-      <Card className="space-y-5">
+      <Card className="space-y-3">
         <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 md:flex-row md:items-center md:justify-between">
           <div className="text-sm text-slate-500">
             Đang hiển thị {(pagination.page - 1) * pagination.pageSize + 1}
@@ -381,8 +414,8 @@ export function PhoneRecordsClient({
             </Button>
             <Button
               variant="secondary"
-              disabled={pagination.page >= pagination.totalPages}
-              onClick={() => updateUrl({ page: pagination.page + 1, q, status, assignedStaffId })}
+              disabled={currentPagination.page >= currentPagination.totalPages || loadingRecords}
+              onClick={() => updateUrl({ page: currentPagination.page + 1, q, status, assignedStaffId })}
             >
               Trang sau
             </Button>
@@ -411,8 +444,9 @@ export function PhoneRecordsClient({
           <div className="text-right">Thao tác</div>
         </div>
 
-        <div className="space-y-5">
-          {records.map((item) => (
+        <div className="space-y-2">
+          {loadingRecords ? <div className="py-8 text-center text-sm text-slate-500">Đang tải dữ liệu...</div> : null}
+          {!loadingRecords && records.map((item) => (
             <RecordRow
               key={item.id}
               item={item}
@@ -425,7 +459,7 @@ export function PhoneRecordsClient({
             />
           ))}
 
-          {records.length === 0 ? (
+          {!loadingRecords && records.length === 0 ? (
             <div className="py-8 text-center text-sm text-slate-500">Không có dữ liệu phù hợp.</div>
           ) : null}
         </div>

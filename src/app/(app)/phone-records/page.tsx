@@ -1,7 +1,7 @@
 import { PageHeader } from "@/components/ui/page-header";
 import { getSessionUser } from "@/lib/auth";
-import { db } from "@/lib/db";
 import { buildPhoneRecordScope, buildStaffScope, canManageUsers } from "@/lib/permissions";
+import { db } from "@/lib/db";
 import { PhoneRecordsClient } from "./phone-records-client";
 
 const PAGE_SIZE = 50;
@@ -22,43 +22,49 @@ export default async function PhoneRecordsPage({ searchParams }: { searchParams?
   const status = params.status || "";
   const assignedStaffId = params.assignedStaffId || "";
 
-  const baseWhere = {
-    ...(q ? { OR: [{ phoneLast9: { contains: q } }, { phoneRaw: { contains: q } }] } : {}),
-    ...(status ? { statusText: status } : {}),
-    ...(assignedStaffId ? { assignedStaffId } : {}),
-  };
-
-  const scope = user ? await buildPhoneRecordScope(user) : { id: "__never__" };
   const staffScope = user ? await buildStaffScope(user) : { id: "__never__" };
-  const where = { AND: [baseWhere, scope] };
   const canAssign = user ? await canManageUsers(user.role, user.id) : false;
+  const staffOptions = await db.user.findMany({
+    where: { AND: [staffScope, { isActive: true }] },
+    select: { id: true, username: true, role: true },
+  });
 
-  const [total, recordsRaw, staffOptions] = await Promise.all([
-    db.phoneRecord.count({ where }),
-    db.phoneRecord.findMany({
-      where,
-      orderBy: { updatedAt: "desc" },
-      skip: (page - 1) * PAGE_SIZE,
-      take: PAGE_SIZE,
-      include: {
-        assignedStaff: { select: { id: true, username: true, role: true, teamId: true, team: { select: { leaderId: true } } } },
-        leader: { select: { id: true, username: true, role: true } },
-      },
-    }),
-    db.user.findMany({ where: { AND: [staffScope, { isActive: true }] }, select: { id: true, username: true, role: true } }),
-  ]);
+  let records: Record<string, unknown>[] = [];
+  let total = 0;
 
-  const records = recordsRaw.map((item) => ({ ...item, updatedAt: item.updatedAt.toISOString() }));
+  if (user) {
+    const scope = await buildPhoneRecordScope(user);
+    const baseWhere = {
+      ...(q ? { OR: [{ phoneLast9: { startsWith: q } }, { phoneRaw: { startsWith: q } }] } : {}),
+      ...(assignedStaffId ? { assignedStaffId } : {}),
+      ...(status ? { statusText: status } : {}),
+    };
+    const where = { AND: [baseWhere, scope] };
+
+    [total, records] = await Promise.all([
+      db.phoneRecord.count({ where }),
+      db.phoneRecord.findMany({
+        where,
+        orderBy: { updatedAt: "desc" },
+        skip: (page - 1) * PAGE_SIZE,
+        take: PAGE_SIZE,
+        include: {
+          assignedStaff: { select: { id: true, username: true, role: true } },
+          leader: { select: { id: true, username: true, role: true } },
+        },
+      }),
+    ]);
+  }
+
   const totalPages = Math.max(Math.ceil(total / PAGE_SIZE), 1);
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Số điện thoại"
-        description="Quản lý record, cập nhật status, ghi chú và phân công nhân viên."
       />
       <PhoneRecordsClient
-        initialRecords={records}
+        initialRecords={JSON.parse(JSON.stringify(records))}
         staffOptions={staffOptions}
         canAssign={canAssign}
         initialFilters={{ q, status, assignedStaffId }}

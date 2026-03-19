@@ -1,44 +1,22 @@
 import { PrismaClient } from "@prisma/client";
-import { PrismaLibSQL } from "@prisma/adapter-libsql";
 
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
 };
 
-function cleanEnvValue(value: string) {
-  const trimmed = value.trim();
-  if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
-    return trimmed.slice(1, -1).trim();
-  }
-  return trimmed;
-}
-
-function getDatabaseUrl() {
-  const raw = process.env.DATABASE_URL;
-  return raw ? cleanEnvValue(raw) : "file:./dev.db";
-}
-
-function getTursoAuthToken() {
-  const raw = process.env.TURSO_AUTH_TOKEN;
-  return raw ? cleanEnvValue(raw) : undefined;
-}
-
-function isLibsqlUrl(url: string) {
-  return /^(libsql|https?):\/\//i.test(url);
-}
-
 function createPrismaClient() {
-  const databaseUrl = getDatabaseUrl();
-
-  return new PrismaClient({
-    adapter: isLibsqlUrl(databaseUrl)
-      ? new PrismaLibSQL({
-          url: databaseUrl,
-          authToken: getTursoAuthToken(),
-        })
-      : null,
+  const client = new PrismaClient({
     log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
   });
+
+  // Per-connection SQLite pragmas (WAL is set persistently by db:prepare)
+  client.$queryRawUnsafe("PRAGMA synchronous = NORMAL").catch(() => {});
+  client.$queryRawUnsafe("PRAGMA cache_size = -64000").catch(() => {});
+  client.$queryRawUnsafe("PRAGMA busy_timeout = 15000").catch(() => {});
+  client.$queryRawUnsafe("PRAGMA temp_store = MEMORY").catch(() => {});
+  client.$queryRawUnsafe("PRAGMA mmap_size = 268435456").catch(() => {});
+
+  return client;
 }
 
 export const db = globalForPrisma.prisma ?? createPrismaClient();
@@ -46,5 +24,3 @@ export const db = globalForPrisma.prisma ?? createPrismaClient();
 if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = db;
 }
-
-export { getDatabaseUrl, getTursoAuthToken, isLibsqlUrl };

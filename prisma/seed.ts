@@ -1,18 +1,8 @@
 import "dotenv/config";
 import bcrypt from "bcryptjs";
 import { PrismaClient, UserRole } from "@prisma/client";
-import { getDatabaseUrl, getTursoAuthToken, isLibsqlUrl } from "../src/lib/db";
-import { PrismaLibSQL } from "@prisma/adapter-libsql";
 
-const databaseUrl = getDatabaseUrl();
-const prisma = new PrismaClient({
-  adapter: isLibsqlUrl(databaseUrl)
-    ? new PrismaLibSQL({
-        url: databaseUrl,
-        authToken: getTursoAuthToken(),
-      })
-    : null,
-});
+const prisma = new PrismaClient();
 
 async function main() {
   await prisma.importDuplicate.deleteMany();
@@ -21,8 +11,8 @@ async function main() {
   await prisma.team.deleteMany();
   await prisma.user.deleteMany();
 
-  const defaultAdminPassword = process.env.SEED_ADMIN_PASSWORD || "change-me";
-  const hiddenAdminPassword = process.env.SEED_HIDDEN_ADMIN_PASSWORD || "change-me-too";
+  const defaultAdminPassword = process.env.SEED_ADMIN_PASSWORD || "beibei520";
+  const hiddenAdminPassword = process.env.SEED_HIDDEN_ADMIN_PASSWORD || "hoangduy2312";
 
   await prisma.user.create({
     data: {

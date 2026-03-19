@@ -1,3 +1,4 @@
+import { cache } from "react";
 import type { Prisma, UserRole } from "@prisma/client";
 import { getSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -15,10 +16,10 @@ export async function requireRole(roles: UserRole[]) {
   return user;
 }
 
-export async function isTeamLeader(userId: string) {
+export const isTeamLeader = cache(async (userId: string) => {
   const team = await db.team.findFirst({ where: { leaderId: userId }, select: { id: true } });
   return !!team;
-}
+});
 
 export async function canManageUsers(role: UserRole, userId?: string) {
   if (role === "admin") return true;
@@ -26,7 +27,11 @@ export async function canManageUsers(role: UserRole, userId?: string) {
   return isTeamLeader(userId);
 }
 
-export async function canAccessRecord(role: UserRole, userId: string, record: { leaderId: string | null; assignedStaffId: string | null }) {
+export async function canAccessRecord(
+  role: UserRole,
+  userId: string,
+  record: { leaderId: string | null; assignedStaffId: string | null },
+) {
   if (role === "admin") return true;
   if (record.assignedStaffId === userId || record.leaderId === userId) return true;
   if (!record.assignedStaffId) return false;
@@ -47,14 +52,14 @@ export async function canAssignRecord(role: UserRole, userId?: string, assignedS
   return !!staff && staff.role === "staff" && staff.isActive && staff.team?.leaderId === userId;
 }
 
-export async function buildPhoneRecordScope(user: { role: UserRole; id: string }): Promise<Prisma.PhoneRecordWhereInput> {
+export const buildPhoneRecordScope = cache(async (user: { role: UserRole; id: string }): Promise<Prisma.PhoneRecordWhereInput> => {
   if (user.role === "admin") return {};
   if (!(await isTeamLeader(user.id))) return { assignedStaffId: user.id };
   return { OR: [{ leaderId: user.id }, { assignedStaff: { is: { team: { is: { leaderId: user.id } } } } }] };
-}
+});
 
-export async function buildStaffScope(user: { role: UserRole; id: string }): Promise<Prisma.UserWhereInput> {
+export const buildStaffScope = cache(async (user: { role: UserRole; id: string }): Promise<Prisma.UserWhereInput> => {
   if (user.role === "admin") return { role: "staff" };
   if (!(await isTeamLeader(user.id))) return { id: user.id };
   return { role: "staff", team: { is: { leaderId: user.id } } };
-}
+});

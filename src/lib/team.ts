@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { cache } from "react";
 import { db } from "@/lib/db";
 
 type DbLike = typeof db | Prisma.TransactionClient;
@@ -30,7 +31,7 @@ export async function findLeadingTeam(userId: string, client: DbLike = db) {
   return client.team.findFirst({ where: { leaderId: userId }, select: { id: true } });
 }
 
-export async function resolveTeamLeadIdForUser(userId: string, client: DbLike = db) {
+async function resolveTeamLeadIdForUserUncached(userId: string, client: DbLike = db) {
   const user = await client.user.findUnique({
     where: { id: userId },
     select: {
@@ -42,6 +43,15 @@ export async function resolveTeamLeadIdForUser(userId: string, client: DbLike = 
 
   if (!user) return null;
   return user.team?.leaderId || (user.leadingTeam ? user.id : null);
+}
+
+const resolveTeamLeadIdForUserCached = cache(async (userId: string) => resolveTeamLeadIdForUserUncached(userId));
+
+export async function resolveTeamLeadIdForUser(userId: string, client: DbLike = db) {
+  if (client === db) {
+    return resolveTeamLeadIdForUserCached(userId);
+  }
+  return resolveTeamLeadIdForUserUncached(userId, client);
 }
 
 export const resolveManagedLeaderId = resolveTeamLeadIdForUser;

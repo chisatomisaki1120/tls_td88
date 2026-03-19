@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
+import { cache } from "react";
 import { db } from "@/lib/db";
 import type { UserRole } from "@prisma/client";
 
@@ -54,7 +55,7 @@ export async function clearSession() {
   cookieStore.set(SESSION_COOKIE, "", { path: "/", maxAge: 0 });
 }
 
-export async function getSessionUser() {
+export const getSessionUser = cache(async () => {
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE)?.value;
   if (!token) return null;
@@ -76,4 +77,4 @@ export async function getSessionUser() {
   } catch {
     return null;
   }
-}
+});

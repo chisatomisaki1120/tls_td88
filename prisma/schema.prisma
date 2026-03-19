@@ -79,6 +79,11 @@ model PhoneRecord {
   @@index([leaderId])
   @@index([statusText])
   @@index([importJobId])
+  @@index([updatedAt])
+  @@index([phoneRaw])
+  @@index([assignedStaffId, updatedAt])
+  @@index([leaderId, updatedAt])
+  @@index([assignedStaffId, statusText])
   @@map("phone_records")
 }
 

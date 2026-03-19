@@ -7,7 +7,7 @@ import { normalizePhoneToLast9 } from "@/lib/phone";
 import { buildPhoneRecordScope, canAssignRecord, canManageUsers } from "@/lib/permissions";
 import { resolveTeamLeadIdForUser } from "@/lib/team";
 
-const createSchema = z.object({ phoneRaw: z.string().min(1), statusText: z.string().nullable().optional(), noteText: z.string().nullable().optional(), assignedStaffId: z.string().nullable().optional() });
+const createSchema = z.object({ phoneRaw: z.string().min(1).max(50), statusText: z.string().max(1000).nullable().optional(), noteText: z.string().max(2000).nullable().optional(), assignedStaffId: z.string().nullable().optional() });
 
 export async function GET(request: NextRequest) {
   const currentUser = await getSessionUser();
@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
   const page = Math.max(Number(request.nextUrl.searchParams.get("page") || 1), 1);
   const requestedPageSize = Number(request.nextUrl.searchParams.get("pageSize") || 50);
   const pageSize = Math.min(Math.max(requestedPageSize, 1), 50);
-  const baseWhere = { ...(q ? { OR: [{ phoneLast9: { contains: q } }, { phoneRaw: { contains: q } }] } : {}), ...(assignedStaffId ? { assignedStaffId } : {}), ...(status ? { statusText: status } : {}) };
+  const baseWhere = { ...(q ? { OR: [{ phoneLast9: { startsWith: q } }, { phoneRaw: { startsWith: q } }] } : {}), ...(assignedStaffId ? { assignedStaffId } : {}), ...(status ? { statusText: status } : {}) };
   const scope = await buildPhoneRecordScope(currentUser);
   const where = { AND: [baseWhere, scope] };
   const [total, items] = await Promise.all([
@@ -44,6 +44,6 @@ export async function POST(request: NextRequest) {
     const created = await db.phoneRecord.create({ data: { phoneRaw: parsed.data.phoneRaw, phoneLast9, statusText: parsed.data.statusText, noteText: parsed.data.noteText, assignedStaffId: parsed.data.assignedStaffId, leaderId, createdById: currentUser.id, updatedById: currentUser.id } });
     return ok({ item: created });
   } catch (error) {
-    return serverError(error instanceof Error ? error.message : "Không thể tạo record");
+    return serverError("Không thể tạo record");
   }
 }

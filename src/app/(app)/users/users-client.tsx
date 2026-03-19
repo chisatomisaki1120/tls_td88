@@ -291,6 +291,8 @@ export function UsersClient({
 }) {
   const [users, setUsers] = useState(initialUsers);
   const [teams, setTeams] = useState(initialTeams);
+  const [leaderOptions, setLeaderOptions] = useState(leaders);
+  const [loadingData, setLoadingData] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [teamForm, setTeamForm] = useState({ name: "", leaderId: leaders[0]?.id || "" });
   const [userForm, setUserForm] = useState({ username: "", password: "", teamId: initialTeams[0]?.id || "" });
@@ -302,8 +304,8 @@ export function UsersClient({
   );
 
   const visibleLeaders = useMemo(
-    () => (currentRole === "admin" ? leaders : leaders.filter((leader) => leader.id === currentUserId)),
-    [leaders, currentRole, currentUserId],
+    () => (currentRole === "admin" ? leaderOptions : leaderOptions.filter((leader) => leader.id === currentUserId)),
+    [leaderOptions, currentRole, currentUserId],
   );
 
   const editingUser = useMemo(
